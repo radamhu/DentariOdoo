@@ -47,7 +47,7 @@
         <field name="name">dental.work.log.tree</field>
         <field name="model">dental.work.log</field>
         <field name="arch" type="xml">
-            <tree>
+            <list>
                 <field name="date"/>
                 <field name="partner_id"/>
                 <field name="patient_name"/>
@@ -56,7 +56,7 @@
                 <field name="price_per_piece"/>
                 <field name="total_revenue" sum="Összes összeg"/>
                 <field name="user_id" groups="dentari_lab.group_lab_manager"/>
-            </tree>
+            </list>
         </field>
     </record>
 
@@ -94,13 +94,13 @@
     <record id="action_dental_work_log" model="ir.actions.act_window">
         <field name="name">Munkalapok</field>
         <field name="res_model">dental.work.log</field>
-        <field name="view_mode">tree,form</field>
+        <field name="view_mode">list,form</field>
     </record>
 
     <record id="action_dental_work_log_today" model="ir.actions.act_window">
         <field name="name">Mai munkák</field>
         <field name="res_model">dental.work.log</field>
-        <field name="view_mode">tree,form</field>
+        <field name="view_mode">list,form</field>
         <field name="context">{'search_default_filter_today': 1}</field>
     </record>
 </odoo>
