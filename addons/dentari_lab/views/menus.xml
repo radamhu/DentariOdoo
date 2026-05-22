@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <menuitem
+        id="menu_dentari_lab_root"
+        name="Dentari Lab"
+        sequence="100"
+    />
+
+    <menuitem
+        id="menu_dental_work_log"
+        name="Munkalapok"
+        parent="menu_dentari_lab_root"
+        action="action_dental_work_log"
+        sequence="10"
+    />
+
+    <menuitem
+        id="menu_dental_work_log_today"
+        name="Mai munkák"
+        parent="menu_dentari_lab_root"
+        action="action_dental_work_log_today"
+        sequence="20"
+    />
+</odoo>

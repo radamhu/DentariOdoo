@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_dental_work_log_form" model="ir.ui.view">
+        <field name="name">dental.work.log.form</field>
+        <field name="model">dental.work.log</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <div class="oe_button_box" name="button_box"/>
+                    <group>
+                        <group>
+                            <field name="total_revenue" readonly="1"/>
+                        </group>
+                    </group>
+                    <group>
+                        <group>
+                            <field name="date"/>
+                            <field name="partner_id"/>
+                        </group>
+                    </group>
+                    <group>
+                        <group string="Páciens adatok">
+                            <field name="patient_name"/>
+                            <field name="tooth_position"/>
+                        </group>
+                        <group string="Munka részletei">
+                            <field name="tooth_color"/>
+                            <field name="work_type"/>
+                            <field name="pieces"/>
+                            <field name="price_per_piece"/>
+                        </group>
+                    </group>
+                    <group>
+                        <field name="notes" nolabel="1" placeholder="Megjegyzések..."/>
+                    </group>
+                </sheet>
+                <div class="oe_chatter">
+                    <field name="message_follower_ids"/>
+                    <field name="activity_ids"/>
+                    <field name="message_ids"/>
+                </div>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_dental_work_log_tree" model="ir.ui.view">
+        <field name="name">dental.work.log.tree</field>
+        <field name="model">dental.work.log</field>
+        <field name="arch" type="xml">
+            <tree>
+                <field name="date"/>
+                <field name="partner_id"/>
+                <field name="patient_name"/>
+                <field name="work_type"/>
+                <field name="pieces" sum="Összes darab"/>
+                <field name="price_per_piece"/>
+                <field name="total_revenue" sum="Összes összeg"/>
+                <field name="user_id" groups="dentari_lab.group_lab_manager"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_dental_work_log_search" model="ir.ui.view">
+        <field name="name">dental.work.log.search</field>
+        <field name="model">dental.work.log</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="partner_id"/>
+                <field name="patient_name"/>
+                <field name="notes"/>
+                <filter
+                    name="filter_today"
+                    string="Ma"
+                    domain="[('date', '=', context_today().strftime('%Y-%m-%d'))]"
+                />
+                <filter
+                    name="filter_this_week"
+                    string="E hét"
+                    domain="[('date', '>=', (context_today() + relativedelta(weekday=0, days=-6)).strftime('%Y-%m-%d'))]"
+                />
+                <filter
+                    name="filter_this_month"
+                    string="E hónap"
+                    domain="[('date', '>=', context_today().strftime('%Y-%m-01'))]"
+                />
+                <separator/>
+                <filter name="group_by_partner" string="Megrendelő" context="{'group_by': 'partner_id'}"/>
+                <filter name="group_by_work_type" string="Munka típusa" context="{'group_by': 'work_type'}"/>
+                <filter name="group_by_date_month" string="Hónap" context="{'group_by': 'date:month'}"/>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_dental_work_log" model="ir.actions.act_window">
+        <field name="name">Munkalapok</field>
+        <field name="res_model">dental.work.log</field>
+        <field name="view_mode">tree,form</field>
+    </record>
+
+    <record id="action_dental_work_log_today" model="ir.actions.act_window">
+        <field name="name">Mai munkák</field>
+        <field name="res_model">dental.work.log</field>
+        <field name="view_mode">tree,form</field>
+        <field name="context">{'search_default_filter_today': 1}</field>
+    </record>
+</odoo>
