@@ -3,7 +3,7 @@ Smoke test — DentariOdoo development environment.
 
 Verifies:
   1. Login via Odoo XML-RPC (admin credentials)
-  2. Dashboard views and actions registered
+  2. Statistics views and actions registered (graph bar, graph pie, pivot)
   3. Create one dental.work.log record
   4. Read it back to confirm persistence
   5. read_group aggregation (graph + pivot mechanics)
@@ -87,11 +87,9 @@ def main() -> None:
         ("view_dental_work_log_graph_bar",  "dental.work.log graph (bar)"),
         ("view_dental_work_log_graph_pie",  "dental.work.log graph (pie)"),
         ("view_dental_work_log_pivot",      "dental.work.log pivot"),
-        ("view_dental_work_log_dashboard",  "dental.work.log dashboard"),
-        ("action_dental_work_log_dashboard", "action: Irányítópult"),
-        ("action_dental_work_log_graph",     "action: Bevétel trend"),
-        ("action_dental_work_log_pivot",     "action: Pivot táblázat"),
-        ("action_dental_work_log_pie",       "action: Munkatípus megoszlás"),
+        ("action_dental_work_log_graph",    "action: Bevétel trend"),
+        ("action_dental_work_log_pivot",    "action: Pivot táblázat"),
+        ("action_dental_work_log_pie",      "action: Munkatípus megoszlás"),
     ]
     for xml_name, label in expected_xmlids:
         try:

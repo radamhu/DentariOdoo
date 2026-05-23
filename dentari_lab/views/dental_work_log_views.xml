@@ -141,39 +141,6 @@
         </field>
     </record>
 
-    <!-- Dashboard view: KPI boxes + embedded graph + pivot -->
-    <record id="view_dental_work_log_dashboard" model="ir.ui.view">
-        <field name="name">dental.work.log.dashboard</field>
-        <field name="model">dental.work.log</field>
-        <field name="arch" type="xml">
-            <dashboard>
-                <group col="4" string="Összesítők">
-                    <aggregate name="revenue_month"
-                        field="total_revenue"
-                        string="Havi bevétel (Ft)"
-                        domain="[('date', '&gt;=', context_today().strftime('%Y-%m-01'))]"
-                        group_operator="sum"/>
-                    <aggregate name="pieces_month"
-                        field="pieces"
-                        string="Havi darabszám"
-                        domain="[('date', '&gt;=', context_today().strftime('%Y-%m-01'))]"
-                        group_operator="sum"/>
-                    <aggregate name="jobs_today"
-                        field="id"
-                        string="Mai munkák"
-                        domain="[('date', '=', context_today().strftime('%Y-%m-%d'))]"
-                        group_operator="count"/>
-                    <aggregate name="revenue_week"
-                        field="total_revenue"
-                        string="Heti bevétel (Ft)"
-                        domain="[('date', '&gt;=', (context_today() + relativedelta(weekday=0, days=-6)).strftime('%Y-%m-%d'))]"
-                        group_operator="sum"/>
-                </group>
-                <view type="graph" ref="dentari_lab.view_dental_work_log_graph_bar"/>
-                <view type="pivot" ref="dentari_lab.view_dental_work_log_pivot"/>
-            </dashboard>
-        </field>
-    </record>
 
     <record id="action_dental_work_log" model="ir.actions.act_window">
         <field name="name">Munkalapok</field>
@@ -186,12 +153,6 @@
         <field name="res_model">dental.work.log</field>
         <field name="view_mode">list,form</field>
         <field name="context">{'search_default_filter_today': 1}</field>
-    </record>
-
-    <record id="action_dental_work_log_dashboard" model="ir.actions.act_window">
-        <field name="name">Irányítópult</field>
-        <field name="res_model">dental.work.log</field>
-        <field name="view_mode">dashboard</field>
     </record>
 
     <record id="action_dental_work_log_graph" model="ir.actions.act_window">

@@ -30,14 +30,6 @@
     />
 
     <menuitem
-        id="menu_dentari_stats_dashboard"
-        name="Irányítópult"
-        parent="menu_dentari_stats"
-        action="action_dental_work_log_dashboard"
-        sequence="10"
-    />
-
-    <menuitem
         id="menu_dentari_stats_graph"
         name="Bevétel trend"
         parent="menu_dentari_stats"
