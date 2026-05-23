@@ -1,5 +1,5 @@
 # Environment / secrets — never commit
-.env.dev
+.env.*
 .env.*.local
 .env.local
 
