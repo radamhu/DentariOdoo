@@ -21,4 +21,43 @@
         action="action_dental_work_log_today"
         sequence="20"
     />
+
+    <menuitem
+        id="menu_dentari_stats"
+        name="Statisztikák"
+        parent="menu_dentari_lab_root"
+        sequence="30"
+    />
+
+    <menuitem
+        id="menu_dentari_stats_dashboard"
+        name="Irányítópult"
+        parent="menu_dentari_stats"
+        action="action_dental_work_log_dashboard"
+        sequence="10"
+    />
+
+    <menuitem
+        id="menu_dentari_stats_graph"
+        name="Bevétel trend"
+        parent="menu_dentari_stats"
+        action="action_dental_work_log_graph"
+        sequence="20"
+    />
+
+    <menuitem
+        id="menu_dentari_stats_pivot"
+        name="Pivot táblázat"
+        parent="menu_dentari_stats"
+        action="action_dental_work_log_pivot"
+        sequence="30"
+    />
+
+    <menuitem
+        id="menu_dentari_stats_pie"
+        name="Munkatípus megoszlás"
+        parent="menu_dentari_stats"
+        action="action_dental_work_log_pie"
+        sequence="40"
+    />
 </odoo>
