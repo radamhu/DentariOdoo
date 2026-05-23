@@ -92,12 +92,28 @@ class DentalWorkLog(models.Model):
     notes: str = fields.Text(
         string='Megjegyzések',
     )
+    attachment_ids: object = fields.Many2many(
+        'ir.attachment',
+        'dental_work_log_attachment_rel',
+        'log_id',
+        'attachment_id',
+        string='Dokumentumok / Képek',
+    )
+    attachment_count: int = fields.Integer(
+        compute='_compute_attachment_count',
+        string='Mellékletek',
+    )
     user_id: object = fields.Many2one(
         'res.users',
         string='Rögzítő',
         default=lambda self: self.env.user,
         index=True,
     )
+
+    @api.depends('attachment_ids')
+    def _compute_attachment_count(self):
+        for rec in self:
+            rec.attachment_count = len(rec.attachment_ids)
 
     @api.depends('pieces', 'price_per_piece')
     def _compute_total_revenue(self):
@@ -128,6 +144,17 @@ class DentalWorkLog(models.Model):
         for rec in self:
             if rec.tooth_position and not re.match(r'^[\d,.\-]+$', rec.tooth_position):
                 raise ValidationError(_('Fogpozíció csak számokat, vesszőt, pontot és kötőjelet tartalmazhat.'))
+
+    def action_open_attachments(self):
+        self.ensure_one()
+        return {
+            'type': 'ir.actions.act_window',
+            'name': 'Mellékletek',
+            'res_model': 'ir.attachment',
+            'view_mode': 'list,form',
+            'domain': [('id', 'in', self.attachment_ids.ids)],
+            'context': {'default_res_model': self._name, 'default_res_id': self.id},
+        }
 
     @api.model_create_multi
     def create(self, vals_list):

@@ -6,7 +6,15 @@
         <field name="arch" type="xml">
             <form>
                 <sheet>
-                    <div class="oe_button_box" name="button_box"/>
+                    <div class="oe_button_box" name="button_box">
+                        <button
+                            name="action_open_attachments"
+                            type="object"
+                            class="oe_stat_button"
+                            icon="fa-paperclip">
+                            <field name="attachment_count" widget="statinfo" string="Melléklet"/>
+                        </button>
+                    </div>
                     <group>
                         <group>
                             <field name="total_revenue" readonly="1"/>
@@ -32,6 +40,9 @@
                     </group>
                     <group>
                         <field name="notes" nolabel="1" placeholder="Megjegyzések..."/>
+                    </group>
+                    <group string="Dokumentumok / Képek">
+                        <field name="attachment_ids" widget="many2many_binary" nolabel="1"/>
                     </group>
                 </sheet>
                 <div class="oe_chatter">
