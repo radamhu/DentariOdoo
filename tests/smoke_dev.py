@@ -79,35 +79,32 @@ def main() -> None:
         return models.execute_kw(db, uid, password, model, method, list(args), kwargs)
 
     # ------------------------------------------------------------------
-    # 2. Dashboard views and actions registered
+    # 2. Dashboard views and actions registered (checked via external ID)
     # ------------------------------------------------------------------
-    expected_views = [
-        "dental.work.log.graph.bar",
-        "dental.work.log.graph.pie",
-        "dental.work.log.pivot",
-        "dental.work.log.dashboard",
+    # get_object_reference raises ValueError if the external ID is missing —
+    # avoids ir.ui.view domain-search issues in Odoo 18.
+    expected_xmlids = [
+        ("view_dental_work_log_graph_bar",  "dental.work.log graph (bar)"),
+        ("view_dental_work_log_graph_pie",  "dental.work.log graph (pie)"),
+        ("view_dental_work_log_pivot",      "dental.work.log pivot"),
+        ("view_dental_work_log_dashboard",  "dental.work.log dashboard"),
+        ("action_dental_work_log_dashboard", "action: Irányítópult"),
+        ("action_dental_work_log_graph",     "action: Bevétel trend"),
+        ("action_dental_work_log_pivot",     "action: Pivot táblázat"),
+        ("action_dental_work_log_pie",       "action: Munkatípus megoszlás"),
     ]
-    for view_name in expected_views:
-        ids = call("ir.ui.view", "search", [[("name", "=", view_name)]])
-        if not ids:
-            fail(f"View not found: '{view_name}' — was the module upgraded after adding dashboard views?")
-        ok(f"View registered  '{view_name}'")
-
-    expected_actions = [
-        "Irányítópult",
-        "Bevétel trend",
-        "Pivot táblázat",
-        "Munkatípus megoszlás",
-    ]
-    for action_name in expected_actions:
-        ids = call(
-            "ir.actions.act_window",
-            "search",
-            [[("name", "=", action_name), ("res_model", "=", "dental.work.log")]],
-        )
-        if not ids:
-            fail(f"Action not found: '{action_name}'")
-        ok(f"Action registered '{action_name}'")
+    for xml_name, label in expected_xmlids:
+        try:
+            _model, res_id = call(
+                "ir.model.data", "get_object_reference",
+                "dentari_lab", xml_name,
+            )
+        except Exception:
+            fail(
+                f"External ID not found: dentari_lab.{xml_name} — "
+                "upgrade the module with '-u dentari_lab' first"
+            )
+        ok(f"Registered  {label} (id={res_id})")
 
     # ------------------------------------------------------------------
     # 3. Find a company partner to use as the clinic (existing)
