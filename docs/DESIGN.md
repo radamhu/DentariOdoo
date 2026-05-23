@@ -13,11 +13,9 @@
 1. [Purpose and Scope](#1-purpose-and-scope)
 2. [High Level Design (HLD)](#2-high-level-design)
    - 2.1 [System Context](#21-system-context)
-   - 2.2 [Architecture Overview](#22-architecture-overview)
-   - 2.3 [Infrastructure Stack](#23-infrastructure-stack)
-   - 2.4 [User Roles and Actors](#24-user-roles-and-actors)
-   - 2.5 [Module Boundaries](#25-module-boundaries)
-   - 2.6 [Data Flow — Work Sheet Entry](#26-data-flow--work-sheet-entry)
+   - 2.2 [User Roles and Actors](#22-user-roles-and-actors)
+   - 2.3 [Module Boundaries](#23-module-boundaries)
+   - 2.4 [Data Flow — Work Sheet Entry](#24-data-flow--work-sheet-entry)
 3. [System Level Design (SLD)](#3-system-level-design)
    - 3.1 [Custom Module: dentari_lab](#31-custom-module-dentari_lab)
    - 3.2 [Data Model](#32-data-model)
@@ -25,13 +23,8 @@
    - 3.4 [Views and UI Specification](#34-views-and-ui-specification)
    - 3.5 [Business Logic](#35-business-logic)
    - 3.6 [Selection Field Constants](#36-selection-field-constants)
-4. [Infrastructure Design](#4-infrastructure-design)
-   - 4.1 [Container Architecture](#41-container-architecture)
-   - 4.2 [PostgreSQL Tuning Rationale](#42-postgresql-tuning-rationale)
-   - 4.3 [Backup Strategy](#43-backup-strategy)
-   - 4.4 [Deployment Pipeline](#44-deployment-pipeline)
-5. [Milestone Roadmap](#5-milestone-roadmap)
-6. [Open Questions and Decisions Log](#6-open-questions-and-decisions-log)
+4. [Milestone Roadmap](#4-milestone-roadmap)
+5. [Open Questions and Decisions Log](#5-open-questions-and-decisions-log)
 
 ---
 
@@ -49,7 +42,7 @@ The decision to migrate to Odoo 18 is driven by:
 
 ### 1.2 Scope of this document
 
-This document covers the design of the **`dentari_lab` Odoo custom module** (Milestone 1) and the surrounding **Docker Compose infrastructure**. It is intended as the reference for all development decisions made in this repository.
+This document covers the design of the **`dentari_lab` Odoo custom module** (Milestone 1). It is intended as the reference for all development decisions made in this repository.
 
 ### 1.3 Out of scope
 
@@ -74,49 +67,18 @@ This document covers the design of the **`dentari_lab` Odoo custom module** (Mil
 │         │                   │                     │            │
 │         └───────────────────┴─────────────────────┘            │
 │                             │                                   │
-│                    HTTPS (Traefik)                              │
-│                             │                                   │
 │              ┌──────────────▼──────────────┐                   │
 │              │        Odoo 18 Web UI        │                   │
 │              │    (dentari_lab module)       │                   │
 │              └──────────────┬───────────────┘                   │
-│                             │ ORM / RPC                        │
+│                             │ ORM                               │
 │              ┌──────────────▼──────────────┐                   │
-│              │     PostgreSQL 16            │                   │
-│              │  (via pgBouncer pool)        │                   │
+│              │          PostgreSQL          │                   │
 │              └─────────────────────────────┘                   │
 └─────────────────────────────────────────────────────────────────┘
-
-External systems referenced:
-  - Dental clinics (res.partner records)
-  - SMTP relay (outbound email / report delivery)
-  - S3-compatible storage (backups via rclone)
 ```
 
-### 2.2 Architecture Overview
-
-The system is a **single-tenant Odoo 18 instance** deployed via Docker Compose. No microservices, no Kubernetes. Each production client (dental lab) receives its own isolated Docker Compose stack on a shared or dedicated server.
-
-Key architectural constraints:
-- Odoo worker count determines concurrency — PostgreSQL connections are pooled through pgBouncer to avoid connection exhaustion
-- All custom business logic lives inside the `dentari_lab` Odoo addon; no external services or sidecars for application logic
-- Redis provides session persistence across Odoo restarts and worker failures
-
-### 2.3 Infrastructure Stack
-
-| Layer | Component | Version | Purpose |
-|---|---|---|---|
-| Application | Odoo | 18 (official image) | ERP + custom modules |
-| Database | PostgreSQL | 16-alpine | Primary datastore |
-| Connection pool | pgBouncer | edoburu/pgbouncer | Transaction-mode pooling |
-| Reverse proxy | Traefik | v3 | SSL termination, routing |
-| Session store | Redis | 7-alpine | Odoo session persistence |
-| Monitoring | node_exporter + Prometheus | latest | Infrastructure metrics |
-| Backups | alpine + pg_dump + rclone | — | GFS rotation to S3 |
-
-**Design principle:** Docker Compose only. This workload (<50 concurrent users) does not require Kubernetes. The real bottleneck is PostgreSQL, not compute orchestration.
-
-### 2.4 User Roles and Actors
+### 2.2 User Roles and Actors
 
 | Role | Odoo Group | Typical Actions |
 |---|---|---|
@@ -125,7 +87,7 @@ Key architectural constraints:
 | **Courier** | `dentari_lab.group_courier` | Read delivery context (Milestone 3) |
 | **Owner / Admin** | `base.group_system` | System configuration, user management |
 
-### 2.5 Module Boundaries
+### 2.3 Module Boundaries
 
 ```
 Odoo 18 Instance
@@ -142,7 +104,7 @@ Odoo 18 Instance
 
 Items in `[Mx]` brackets are planned in future milestones and not implemented yet.
 
-### 2.6 Data Flow — Work Sheet Entry
+### 2.4 Data Flow — Work Sheet Entry
 
 ```
 Lab Technician
@@ -163,10 +125,6 @@ dental.work.log.create()           ← ORM write
      │
      ▼
 PostgreSQL (dental_work_log table)
-     │
-     ├── pgBouncer (transaction pool) manages connection lifecycle
-     │
-     └── Indexes on: date, partner_id, work_type, user_id
 ```
 
 ---
@@ -483,108 +441,7 @@ WORK_TYPES = [
 
 ---
 
-## 4. Infrastructure Design
-
-### 4.1 Container Architecture
-
-Three environment profiles, each a separate Compose file.
-
-```
-┌─────────────────────────────────────────────────────────┐
-│                 docker-compose.prod.yml                  │
-│                                                         │
-│  ┌──────────┐   ┌──────────┐   ┌──────────────────┐   │
-│  │  Traefik │   │   Odoo   │   │    pgBouncer     │   │
-│  │  :80/443 │──▶│  :8069   │──▶│  :6432           │   │
-│  └──────────┘   └──────────┘   └────────┬─────────┘   │
-│                                          │             │
-│                      ┌───────────────────▼──────┐      │
-│                      │     PostgreSQL 16         │      │
-│                      │     :5432 (internal)      │      │
-│                      └──────────────────────────┘      │
-│                                                         │
-│  ┌──────────┐   ┌──────────────────────────────────┐   │
-│  │  Redis   │   │         backup container          │   │
-│  │  :6379   │   │  pg_dump + rclone → S3            │   │
-│  └──────────┘   └──────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────┘
-```
-
-**Environment differences:**
-
-| Parameter | Dev | Staging | Production |
-|---|---|---|---|
-| Odoo workers | 2 | 4 | 8 |
-| DB RAM | 512 MB | 2 GB | 8 GB |
-| pgBouncer pool size | — (not used) | 20 | 25 |
-| Traefik / SSL | No | Yes | Yes |
-| Addons mount | bind (hot-reload) | bind | read-only bind |
-| pgHero | Yes (:8080) | Yes | No |
-
-### 4.2 PostgreSQL Tuning Rationale
-
-pgBouncer is mandatory because Odoo opens one connection per worker. Without pooling:
-
-```
-8 workers × 3 Odoo instances = 24 direct connections
-max_connections=10 → Odoo fails to connect
-max_connections=100 → PostgreSQL memory balloons
-```
-
-pgBouncer in **transaction mode** multiplexes connections: 24 Odoo workers share ~3-5 actual PostgreSQL connections under typical load.
-
-Production `postgresql.conf` highlights:
-
-```
-shared_buffers = 2GB           # 25% of DB container RAM (8 GB)
-work_mem = 128MB               # per-operation sort; watch for N workers × M queries
-effective_cache_size = 6GB     # planner hint (75% of RAM)
-max_connections = 10           # pgBouncer handles the rest
-wal_buffers = 64MB
-random_page_cost = 1.1         # SSD
-```
-
-### 4.3 Backup Strategy
-
-GFS rotation (Grandfather-Father-Son):
-
-| Tier | Schedule | Retention | Storage |
-|---|---|---|---|
-| Daily | 02:00 nightly | 7 days | S3 |
-| Weekly | Sunday 03:00 | 4 weeks | S3 |
-| Monthly | 1st of month 04:00 | 3 months | S3 |
-
-Backup payload per run:
-1. `pg_dump -Fc` of the Odoo database
-2. `tar czf` of `/var/lib/odoo/filestore`
-
-Uploaded via `rclone` to an S3-compatible remote (`RCLONE_REMOTE` env var). Restore procedure tested monthly.
-
-### 4.4 Deployment Pipeline
-
-```
-developer branch
-      │
-      │  git push
-      ▼
-GitHub Actions / GitLab CI
-  ├── docker build -t dentariodo:latest .   (addons baked into image)
-  ├── docker push registry/dentariodo:sha
-  └── SSH → staging server
-        └── docker compose -f docker-compose.staging.yml pull && up -d
-              │
-              └── smoke test: login + run one report
-                    │
-                    └── manual: tag image dentariodo:YYYY-MM-DD
-                          └── SSH → prod server
-                                └── docker compose -f docker-compose.prod.yml up -d
-```
-
-Rollback: update image tag in `docker-compose.prod.yml` to previous date tag, `up -d`.
-
----
-
-## 5. Milestone Roadmap
+## 4. Milestone Roadmap
 
 | Milestone | Scope | Status |
 |---|---|---|
@@ -596,7 +453,7 @@ Rollback: update image tag in `docker-compose.prod.yml` to previous date tag, `u
 
 ---
 
-## 6. Open Questions and Decisions Log
+## 5. Open Questions and Decisions Log
 
 | # | Question | Decision | Date | Rationale |
 |---|---|---|---|---|
@@ -604,5 +461,4 @@ Rollback: update image tag in `docker-compose.prod.yml` to previous date tag, `u
 | 2 | Invoicing integration in M1? | Deferred to M4 | 2026-05-22 | Keep M1 scope minimal; standalone tracking first |
 | 3 | Undo functionality (matching legacy app)? | Replaced by `mail.thread` chatter tracking | 2026-05-22 | Chatter provides field-level history; explicit undo adds complexity without proportional value |
 | 4 | `tooth_color` and `work_type` as Selection or as related models? | Selection (static list) | 2026-05-22 | Lists are stable dental standards (VITA scale, lab work types); a configurable model would add UI overhead for no gain |
-| 5 | Multi-tenant (one Odoo instance per lab vs shared)? | One Compose stack per lab | 2026-05-22 | Simpler data isolation, easier per-client backup/restore, acceptable cost at this scale |
-| 6 | `total_revenue` stored or computed-only? | Stored (`store=True`) | 2026-05-22 | Required for efficient GROUP BY in monthly reports and list view column sums |
+| 5 | `total_revenue` stored or computed-only? | Stored (`store=True`) | 2026-05-22 | Required for efficient GROUP BY in monthly reports and list view column sums |
