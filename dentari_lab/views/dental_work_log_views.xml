@@ -155,6 +155,12 @@
         <field name="context">{'search_default_filter_today': 1}</field>
     </record>
 
+    <record id="action_dental_work_log_dashboard" model="ir.actions.act_window">
+        <field name="name">Irányítópult</field>
+        <field name="res_model">dental.work.log</field>
+        <field name="view_mode">graph,pivot</field>
+    </record>
+
     <record id="action_dental_work_log_graph" model="ir.actions.act_window">
         <field name="name">Bevétel trend</field>
         <field name="res_model">dental.work.log</field>

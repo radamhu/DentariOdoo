@@ -4,6 +4,7 @@
         id="menu_dentari_lab_root"
         name="Dentari Lab"
         sequence="100"
+        groups="dentari_lab.group_lab_technician"
     />
 
     <menuitem
@@ -27,6 +28,14 @@
         name="Statisztikák"
         parent="menu_dentari_lab_root"
         sequence="30"
+    />
+
+    <menuitem
+        id="menu_dentari_stats_dashboard"
+        name="Irányítópult"
+        parent="menu_dentari_stats"
+        action="action_dental_work_log_dashboard"
+        sequence="10"
     />
 
     <menuitem
