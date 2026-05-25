@@ -84,12 +84,14 @@ def main() -> None:
     # get_object_reference raises ValueError if the external ID is missing —
     # avoids ir.ui.view domain-search issues in Odoo 18.
     expected_xmlids = [
-        ("view_dental_work_log_graph_bar",  "dental.work.log graph (bar)"),
-        ("view_dental_work_log_graph_pie",  "dental.work.log graph (pie)"),
-        ("view_dental_work_log_pivot",      "dental.work.log pivot"),
-        ("action_dental_work_log_graph",    "action: Bevétel trend"),
-        ("action_dental_work_log_pivot",    "action: Pivot táblázat"),
-        ("action_dental_work_log_pie",      "action: Munkatípus megoszlás"),
+        ("view_dental_work_log_graph_bar",      "dental.work.log graph (bar)"),
+        ("view_dental_work_log_graph_pie",      "dental.work.log graph (pie)"),
+        ("view_dental_work_log_pivot",          "dental.work.log pivot"),
+        ("action_dental_work_log_dashboard",    "action: Irányítópult"),
+        ("action_dental_work_log_graph",        "action: Bevétel trend"),
+        ("action_dental_work_log_pivot",        "action: Pivot táblázat"),
+        ("action_dental_work_log_pie",          "action: Munkatípus megoszlás"),
+        ("menu_dentari_stats_dashboard",        "menu: Irányítópult"),
     ]
     for xml_name, label in expected_xmlids:
         try:
