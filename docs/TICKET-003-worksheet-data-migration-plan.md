@@ -208,6 +208,44 @@ SELECT COUNT(*) FROM dental_work_log WHERE created_by IS NULL;
 Document all anomalies found. Decide per-anomaly: fix in source, transform in
 script, or skip row.
 
+### 5-Results: Audit run 2026-05-28 (source: `myschema.dental_work_log`, Railway PostgreSQL)
+
+**Baseline numbers — post-migration validation targets:**
+
+| Metric | Value |
+|---|---|
+| Total rows | 173 |
+| Total pieces | 1,105 |
+| Total revenue | 5,663,000 Ft |
+| Date range | 2026-01-19 → 2026-05-28 |
+| Distinct clients | 10 |
+
+**Monthly breakdown:**
+
+| Month | Records | Pieces | Revenue | Clients |
+|---|---|---|---|---|
+| 2026-01 | 15 | 47 | 260,000 Ft | 4 |
+| 2026-02 | 34 | 149 | 892,000 Ft | 7 |
+| 2026-03 | 46 | 272 | 1,551,000 Ft | 6 |
+| 2026-04 | 38 | 274 | 1,282,000 Ft | 4 |
+| 2026-05 | 40 | 363 | 1,678,000 Ft | 6 |
+
+**Anomalies found:**
+
+| ID | Field | Value | Decision |
+|---|---|---|---|
+| A1 | `tooth_position` (IDs 42, 108) | spaces in value (`33-36, 44-47`, `14 `) | Strip spaces in transform before constraint check |
+| A2 | `client_name` (id=161) | `"Monolitikus"` — work_type entered as client name | **Resolved 2026-05-28:** source record corrected to `'TriDent Design Solutions Kft.'`; `work_type` unchanged |
+| A3 | `client_name` (Zambelly Judit, Keresztes Tamás, Tihanyi Zoli) | trailing space in source value | Strip in `transform_row()` before partner lookup (`.strip()`) |
+
+**§5.3–5.5 clean:** No NULLs in required fields, no pieces outside 1–100, no prices outside 0–500,000.
+**§5.7–5.8 clean:** All `work_type` values map without gaps; all `tooth_color` values are valid VITA codes or NULL.
+**§5.10 clean:** All 173 records have `created_by` set (all belong to `owner` / id=1).
+
+**User mapping (§4.2):** Single source user — `owner` (id=1, email: `adam.eswzter.ann@gmail.com`). Map to the corresponding `res.users` in Odoo; no fallback-user scenario needed.
+
+**Post-fix baseline (A2 corrected 2026-05-28):** Source now has 9 distinct clients; TriDent Design Solutions Kft. count is 50 (was 49).
+
 ---
 
 ## 6. Pre-Migration Prerequisites
@@ -225,6 +263,27 @@ These must be completed **before** the migration script runs:
 | P7 | Data quality audit completed (§5) and anomalies documented | Dev | |
 | P8 | `client_name → partner_id` mapping table approved | Business | See §4.2 |
 
+### 6-Results: D3 Partner Mapping (completed 2026-05-28)
+
+All 9 source clients created as `res.partner` (is_company=True) in Odoo prod.
+A2 corrected in source before creation; A3 trailing spaces stripped.
+Canonical mapping (also at `docs/cutover_artifacts/partner_mapping.csv`):
+
+| source `client_name` | records | Odoo `partner_id` |
+|---|---|---|
+| DenTéZé Bt. | 59 | 7 |
+| TriDent Design Solutions Kft. | 50 | 8 |
+| Budadent | 35 | 9 |
+| Zambelly Judit | 13 | 10 |
+| Family Smile Dental | 7 | 11 |
+| Keresztes Tamás | 6 | 12 |
+| Szigetvári Péter | 1 | 13 |
+| Adri Dent | 1 | 14 |
+| Tihanyi Zoli | 1 | 15 |
+
+Script used: `docs/cutover_artifacts/create_partners.py`
+Prerequisite P1 satisfied.
+
 ---
 
 ## 7. Migration Script Design
@@ -236,7 +295,16 @@ These must be completed **before** the migration script runs:
 - Target access: Odoo XML-RPC (`xmlrpc.client`) — no direct DB writes
 - Script location (suggested): `docs/cutover_artifacts/migrate_worksheet.py`
 
-### 7.2 Script Structure
+### 7.2 Transform notes from audit (anomalies A1–A2)
+
+- **A1 — tooth_position spaces:** Strip all whitespace before the `[0-9,.\-]` constraint check.
+  Add `val = re.sub(r'\s+', '', val)` in `transform_row()` before the `[:50]` truncation.
+  Without this, IDs 42 and 108 will raise a constraint error on Odoo write.
+- **A2 — "Monolitikus" client:** Source record id=161 corrected to `client_name = 'TriDent Design Solutions Kft.'` (2026-05-28). No script handling needed.
+- **A3 — trailing spaces in `client_name`:** `'Zambelly Judit '`, `'Keresztes Tamás '`, `'Tihanyi Zoli '` have trailing spaces in source.
+  Fix: `.strip()` on `client_name` before partner lookup in `transform_row()`.
+
+### 7.3 Script Structure
 
 ```
 migrate_worksheet.py
@@ -251,13 +319,13 @@ migrate_worksheet.py
 └── load()        — create records via Odoo XML-RPC in batches
 ```
 
-### 7.3 Batch Loading
+### 7.4 Batch Loading
 
 - Batch size: 100 records per `execute_kw` call (`model_create_multi`)
 - On error: log row ID + error message, continue with next batch
 - Progress: print running totals every 500 records
 
-### 7.4 Environment Variables Required
+### 7.5 Environment Variables Required
 
 ```bash
 SRC_DB_URL=postgresql://user:pass@host:5432/dentari_db
@@ -268,7 +336,7 @@ ODOO_PASSWORD=...
 ODOO_MIGRATION_USER_ID=...  # fallback res.users.id for unmapped users
 ```
 
-### 7.5 Idempotency
+### 7.6 Idempotency
 
 The script does not delete existing Odoo records. If re-run:
 - Duplicate records will be created unless guarded
@@ -308,7 +376,7 @@ def transform_row(row, partner_map, user_map, fallback_user_id):
 
     return {
         'date': row['date'],                         # already YYYY-MM-DD
-        'partner_id': partner_map[row['client_name']],
+        'partner_id': partner_map[row['client_name'].strip()],  # A3: strip trailing spaces
         'patient_name': (row['patient_name'] or '')[:100] or False,
         'tooth_position': (row['tooth_position'] or '')[:50] or False,
         'tooth_color': tooth_color or False,
@@ -399,10 +467,10 @@ odoo.execute_kw('dental.work.log', 'search_count',
 | # | Artifact | Status |
 |---|---|---|
 | D1 | This migration plan | Done |
-| D2 | Data quality audit results (from §5) | TODO |
-| D3 | `client_name → partner_id` mapping table | TODO |
-| D4 | `users → res.users` mapping table | TODO |
-| D5 | Migration script `migrate_worksheet.py` | TODO |
+| D2 | Data quality audit results (from §5) | Done — see §5-Results |
+| D3 | `client_name → partner_id` mapping table | Done — see §6-Results + `docs/cutover_artifacts/partner_mapping.csv` |
+| D4 | `users → res.users` mapping table | Done (trivial) — single user `owner` → `res.users` id=2 (admin) |
+| D5 | Migration script `migrate_worksheet.py` | Done — `docs/cutover_artifacts/migrate_worksheet.py` |
 | D6 | Post-migration validation report | TODO |
 
 ---
@@ -423,5 +491,5 @@ odoo.execute_kw('dental.work.log', 'search_count',
 
 ---
 
-*Plan version: 1.0 — 2026-05-23*
+*Plan version: 1.3 — 2026-05-28 — D5 migration script written (`docs/cutover_artifacts/migrate_worksheet.py`)*
 *Author: migration planning session*
