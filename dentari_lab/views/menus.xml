@@ -24,6 +24,15 @@
     />
 
     <menuitem
+        id="menu_dental_monthly_wizard"
+        name="Havi Összesítő"
+        parent="menu_dentari_lab_root"
+        action="action_dental_monthly_wizard"
+        sequence="25"
+        groups="dentari_lab.group_lab_manager"
+    />
+
+    <menuitem
         id="menu_dentari_stats"
         name="Statisztikák"
         parent="menu_dentari_lab_root"

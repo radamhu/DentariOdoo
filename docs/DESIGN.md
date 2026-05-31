@@ -3,8 +3,8 @@
 **Project:** DentariOdoo  
 **Product:** Odoo 18 ERP for dental laboratory operations  
 **Authors:** Dentari Development Team  
-**Status:** Draft — Milestone 1  
-**Last updated:** 2026-05-22
+**Status:** Active — Milestone 4 done, M5 planned  
+**Last updated:** 2026-05-31
 
 ---
 
@@ -99,7 +99,8 @@ Odoo 18 Instance
     ├── [M2] dashboard      (aggregated KPIs)
     ├── [M2] import wizard  (Excel/CSV with Hungarian headers)
     ├── [M3] courier model  (delivery assignments)
-    └── [M4] invoicing      (account.move bridge)
+    ├── [M4] invoicing      (account.move bridge) ✓ done
+    └── [M5] monthly wizard (period-based draft invoice per partner)
 ```
 
 Items in `[Mx]` brackets are planned in future milestones and not implemented yet.
@@ -445,11 +446,13 @@ WORK_TYPES = [
 
 | Milestone | Scope | Status |
 |---|---|---|
-| **M1 — Work Log CRUD** | `dental.work.log` model, form + list + search views, security groups, record rules | In Progress |
+| **M1 — Work Log CRUD** | `dental.work.log` model, form + list + search views, security groups, record rules | Done |
 | **M2 — Statistics & Import** | Dashboard KPIs (today/week/month), Excel/CSV import wizard with Hungarian column mapping | Planned |
 | **M3 — Courier Module** | Delivery assignment model, route tracking, courier-facing view | Planned |
-| **M4 — Invoicing Bridge** | Generate `account.move` draft invoices from grouped work logs | Planned |
-| **M5 — PDF Reports** | Monthly lab report, per-client breakdown, Pareto analysis | Planned |
+| **M4 — Invoicing Bridge** | `dental.invoice.wizard` — manual multi-select → draft `account.move` per partner | Done |
+| **M5a — Monthly Statement (PDF)** | `dental.monthly.wizard` — period-based auto-collect → QWeb PDF summary per partner; lab manager emails PDF, partner confirms offline, invoice in 3rd party system | Planned |
+| **M5b — Monthly Statement (Invoice)** | Extend M5a wizard with "Számlák létrehozása" button → draft `account.move` per partner; replaces 3rd party invoicing; triggers NAV reporting on post — **no deadline, activates when Odoo invoicing goes live** | Deferred |
+| **M6 — CRM / Lead Pipeline** | Replace lab_manager's Excel partner prospecting; `crm` module — no deadline set | Deferred |
 
 ---
 
@@ -462,6 +465,11 @@ WORK_TYPES = [
 | 3 | Undo functionality (matching legacy app)? | Replaced by `mail.thread` chatter tracking | 2026-05-22 | Chatter provides field-level history; explicit undo adds complexity without proportional value |
 | 4 | `tooth_color` and `work_type` as Selection or as related models? | Selection (static list) | 2026-05-22 | Lists are stable dental standards (VITA scale, lab work types); a configurable model would add UI overhead for no gain |
 | 5 | `total_revenue` stored or computed-only? | Stored (`store=True`) | 2026-05-22 | Required for efficient GROUP BY in monthly reports and list view column sums |
+| 6 | Install `sale` module for month-end approval flow? | No — draft `account.move` is the approval document | 2026-05-31 | Partners receive PDF by email and confirm offline; no quotation/order split needed; `sale` adds overhead without value for this use case |
+| 7 | Install `crm` module for partner prospecting? | Deferred (M6) | 2026-05-31 | Lab manager currently uses Excel; no deadline for migration; `crm` is self-contained and can be added later without affecting core billing flow |
+| 8 | Custom approval model (`dental.monthly.statement`) vs draft invoice? | Draft `account.move` — Phase 2 only | 2026-05-31 | Draft→posted lifecycle already implements the approval state machine; custom model would duplicate this without adding value; not created in Phase 1 while 3rd party invoicing is active |
+| 9 | Partner portal for approval? | Out of scope for M5 | 2026-05-31 | Partners confirm by email/phone; lab_manager manually posts the invoice; portal can be added in a future milestone without model changes |
+| 10 | Create draft `account.move` in Phase 1 (before invoicing go-live)? | No — QWeb PDF only | 2026-05-31 | While a 3rd party system issues the real invoice, Odoo draft invoices would be misleading and risk backdated NAV reporting when eventually posted |
 
 ---
 
