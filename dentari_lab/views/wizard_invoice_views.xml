@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_dental_invoice_wizard_form" model="ir.ui.view">
+        <field name="name">dental.invoice.wizard.form</field>
+        <field name="model">dental.invoice.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Számlák generálása">
+                <group>
+                    <field name="invoice_date" required="1"/>
+                </group>
+                <group string="Érintett megrendelők">
+                    <field name="partner_summary_ids" nolabel="1" readonly="1">
+                        <list>
+                            <field name="partner_id" string="Megrendelő"/>
+                            <field name="log_count" string="Munkalapok"/>
+                            <field name="total_amount" string="Összeg (Ft)"/>
+                        </list>
+                    </field>
+                </group>
+                <footer>
+                    <button name="create_invoices" type="object"
+                            string="Számlák létrehozása" class="btn-primary"/>
+                    <button string="Mégse" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_dental_generate_invoices" model="ir.actions.server">
+        <field name="name">Számlák generálása</field>
+        <field name="model_id" ref="model_dental_work_log"/>
+        <field name="binding_model_id" ref="model_dental_work_log"/>
+        <field name="binding_view_types">list</field>
+        <field name="groups_id" eval="[(4, ref('dentari_lab.group_lab_manager'))]"/>
+        <field name="state">code</field>
+        <field name="code">action = {
+    'type': 'ir.actions.act_window',
+    'res_model': 'dental.invoice.wizard',
+    'view_mode': 'form',
+    'target': 'new',
+    'context': dict(env.context, active_ids=records.ids, active_model='dental.work.log'),
+}</field>
+    </record>
+</odoo>
