@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_dental_monthly_wizard_form" model="ir.ui.view">
+        <field name="name">dental.monthly.wizard.form</field>
+        <field name="model">dental.monthly.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Havi Összesítő">
+                <group>
+                    <group string="Időszak">
+                        <field name="period_year"/>
+                        <field name="period_month"/>
+                    </group>
+                    <group string="Szűrő (opcionális)">
+                        <field name="partner_ids" widget="many2many_tags"/>
+                    </group>
+                </group>
+                <group string="Megrendelők az időszakban">
+                    <field name="preview_ids" nolabel="1" readonly="1">
+                        <list>
+                            <field name="partner_id"/>
+                            <field name="log_count" string="Munkalapok"/>
+                            <field name="total_amount" string="Összeg (Ft)"/>
+                        </list>
+                    </field>
+                </group>
+                <footer>
+                    <button name="action_print_summary" type="object"
+                            string="Összesítő nyomtatása" class="btn-primary"/>
+                    <button string="Mégse" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_dental_monthly_wizard" model="ir.actions.act_window">
+        <field name="name">Havi Összesítő</field>
+        <field name="res_model">dental.monthly.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+</odoo>
