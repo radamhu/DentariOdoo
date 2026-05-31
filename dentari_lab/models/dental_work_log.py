@@ -109,11 +109,36 @@ class DentalWorkLog(models.Model):
         default=lambda self: self.env.user,
         index=True,
     )
+    invoice_id: object = fields.Many2one(
+        'account.move',
+        string='Számla',
+        readonly=True,
+        ondelete='set null',
+        copy=False,
+        index=True,
+    )
+    invoice_state: str = fields.Char(
+        string='Számla állapota',
+        compute='_compute_invoice_state',
+    )
 
     @api.depends('attachment_ids')
     def _compute_attachment_count(self):
         for rec in self:
             rec.attachment_count = len(rec.attachment_ids)
+
+    @api.depends('invoice_id', 'invoice_id.state')
+    def _compute_invoice_state(self):
+        state_labels = {
+            'draft': 'Piszkozat',
+            'posted': 'Könyvelve',
+            'cancel': 'Sztornózva',
+        }
+        for rec in self:
+            if rec.invoice_id:
+                rec.invoice_state = state_labels.get(rec.invoice_id.state, rec.invoice_id.state)
+            else:
+                rec.invoice_state = 'Nincs számla'
 
     @api.depends('pieces', 'price_per_piece')
     def _compute_total_revenue(self):

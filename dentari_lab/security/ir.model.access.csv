@@ -1,3 +1,5 @@
 id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
 access_work_log_technician,work log technician,model_dental_work_log,dentari_lab.group_lab_technician,1,1,1,0
 access_work_log_manager,work log manager,model_dental_work_log,dentari_lab.group_lab_manager,1,1,1,1
+access_invoice_wizard_manager,invoice wizard manager,model_dental_invoice_wizard,dentari_lab.group_lab_manager,1,1,1,1
+access_invoice_wizard_line_manager,invoice wizard line manager,model_dental_invoice_wizard_line,dentari_lab.group_lab_manager,1,1,1,1
