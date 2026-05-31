@@ -462,3 +462,82 @@ WORK_TYPES = [
 | 3 | Undo functionality (matching legacy app)? | Replaced by `mail.thread` chatter tracking | 2026-05-22 | Chatter provides field-level history; explicit undo adds complexity without proportional value |
 | 4 | `tooth_color` and `work_type` as Selection or as related models? | Selection (static list) | 2026-05-22 | Lists are stable dental standards (VITA scale, lab work types); a configurable model would add UI overhead for no gain |
 | 5 | `total_revenue` stored or computed-only? | Stored (`store=True`) | 2026-05-22 | Required for efficient GROUP BY in monthly reports and list view column sums |
+
+---
+
+## 6. Module Quick Reference
+
+**Module ID:** `dentari_lab`  
+**Odoo version:** 18.0.1.0.0  
+**Dependencies:** `base`, `mail`  
+**Category:** Dental / Laboratory
+
+```
+addons/dentari_lab/
+├── __manifest__.py
+├── __init__.py
+├── models/
+│   ├── __init__.py
+│   └── dental_work_log.py      # core model + business logic
+├── views/
+│   ├── dental_work_log_views.xml
+│   └── menus.xml
+├── security/
+│   ├── groups.xml
+│   ├── ir.model.access.csv
+│   └── record_rules.xml
+└── data/
+```
+
+### Data Model
+
+Core entity: `dental.work.log` → table `dental_work_log`
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `date` | Date | Required, default today, indexed |
+| `partner_id` | Many2one → res.partner | Clinic, required, companies only |
+| `patient_name` | Char(100) | Optional |
+| `tooth_position` | Char(50) | FDI notation, validated (digits/comma/dot/hyphen) |
+| `tooth_color` | Selection | VITA scale — A1–A4, B1–B4, C1–C4, D2–D4, BL1–BL4 |
+| `work_type` | Selection | Korona, Híd, Implant, Facet, Ideiglenes, Javítás, Monolitikus, Egyéb |
+| `pieces` | Integer | Required, 1–100, default 1 |
+| `price_per_piece` | Float (HUF) | Required, 0–500 000, default 5 000 Ft |
+| `total_revenue` | Float (computed) | `pieces × price_per_piece`, stored |
+| `notes` | Text | Optional |
+| `user_id` | Many2one → res.users | Who created the entry |
+
+**Mixins:** `mail.thread` (chatter + field tracking) · `mail.activity.mixin`  
+**Tracked fields:** `date`, `partner_id`, `work_type`, `pieces`, `price_per_piece`
+
+### Security & Roles
+
+```
+base.group_user
+    └── group_lab_technician    — create/read/write own records
+            └── group_lab_manager   — full CRUD on all records
+```
+
+| Permission | Lab Technician | Lab Manager |
+|------------|:--------------:|:-----------:|
+| Read own records | ✓ | ✓ |
+| Read all records | — | ✓ |
+| Create | ✓ | ✓ |
+| Edit | ✓ (own) | ✓ |
+| Delete | — | ✓ |
+
+Record rule: technicians are domain-restricted to `user_id = uid`.
+
+### UI
+
+**Menu:**
+```
+Dentari Lab
+├── Munkalapok     → all records, full search
+└── Mai munkák     → today's records
+```
+
+**List view columns:** Date · Clinic · Patient · Work Type · Pieces · Unit Price · Total  
+**Column sums** on Pieces and Total Revenue.
+
+**Search:** predefined filters (Today / This Week / This Month), group-by (Clinic / Work Type / Date), free-text on clinic, patient, notes.
