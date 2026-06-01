@@ -88,17 +88,10 @@ class DentalMonthlyWizard(models.TransientModel):
                     'partner_id': pid,
                     'log_count': 0,
                     'total_amount': 0.0,
-                    'log_ids': [],
                 }
             summary[pid]['log_count'] += 1
             summary[pid]['total_amount'] += log.total_revenue
-            summary[pid]['log_ids'].append(log.id)
-        result = []
-        for vals in summary.values():
-            log_ids = vals.pop('log_ids')
-            vals['log_ids'] = [(6, 0, log_ids)]
-            result.append((0, 0, vals))
-        return result
+        return [(0, 0, vals) for vals in summary.values()]
 
     def action_print_summary(self):
         self.ensure_one()
@@ -126,9 +119,21 @@ class DentalMonthlyWizardLine(models.TransientModel):
     total_amount = fields.Float(string='Összeg (Ft)', digits=(10, 0), readonly=True)
     log_ids = fields.Many2many(
         'dental.work.log',
-        'dental_monthly_wizard_line_log_rel',
-        'line_id',
-        'log_id',
         string='Munkalapok',
-        readonly=True,
+        compute='_compute_log_ids',
     )
+
+    @api.depends('wizard_id.period_year', 'wizard_id.period_month', 'partner_id')
+    def _compute_log_ids(self):
+        for line in self:
+            wizard = line.wizard_id
+            if not wizard.period_month or not line.partner_id:
+                line.log_ids = self.env['dental.work.log']
+                continue
+            date_from = date(wizard.period_year, int(wizard.period_month), 1)
+            date_to = date_from + relativedelta(months=1) - timedelta(days=1)
+            line.log_ids = self.env['dental.work.log'].search([
+                ('date', '>=', date_from),
+                ('date', '<=', date_to),
+                ('partner_id', '=', line.partner_id.id),
+            ], order='date, id')

@@ -16,48 +16,58 @@
 
 ## Summary
 
-Two bugs found after TICKET-006 delivery that rendered the Monthly Statement Wizard ("Havi Összesítő") non-functional:
+Three bugs found after TICKET-006 delivery:
 
 1. **"Összesítő nyomtatása" raised `UserError: Nincs munkalap a kiválasztott időszakban.`** even when the partner preview correctly showed data.
-2. **Clicking a partner row opened an empty detail popup** — the associated work log lines (`log_ids`) were missing.
+2. **Clicking a partner row opened an empty detail popup** — `log_ids` was missing.
+3. **`log_ids` only appeared in the popup after the PDF had been generated at least once** — before the first print, the detail popup was always empty.
+
+All three stem from the same root cause.
 
 ---
 
 ## Root Cause
 
-Both bugs share the same root cause: **Odoo does not send readonly field values back to the server when a button is clicked**.
+**Odoo does not send readonly field values back to the server when a button is clicked**, and **onchange-produced One2many records are virtual (client-only) until explicitly written to the database.**
 
 ### Detailed trace
 
 ```
-Wizard opens (current month = June 2026, no data yet)
-  → default_get() called
-  → _search_logs() returns empty list
-  → create() stores wizard with preview_ids = []   ← DB has EMPTY preview_ids
+Wizard opens (current month = June 2026, no data)
+  → default_get() → _search_logs() returns []
+  → create() stores wizard with preview_ids = []   ← DB is EMPTY
 
 User changes period to May 2026
   → _onchange_period() fires
-  → Client UI updated with partner rows (virtual, not persisted)
+  → Client UI shows partner rows (virtual, not persisted to DB)
   → DB wizard record still has preview_ids = []
 
+User clicks on a partner row
+  → Popup opens for the virtual line record
+  → log_ids not in client cache (not in the One2many <list> view columns)
+  → Popup shows empty log list  ✗
+
 User clicks "Összesítő nyomtatása"
-  → Client sends write() to server
-  → preview_ids is readonly="1" in the form → NOT included in write payload
+  → Client sends write() — preview_ids is readonly="1" → NOT included
   → Server-side self.preview_ids is still []
-  → action_print_summary() checks `if not self.preview_ids` → raises UserError  ✗
+  → action_print_summary() checks `if not self.preview_ids` → UserError  ✗
+
+  — After the first print (action_print_summary ran write()) —
+
+User clicks on a partner row
+  → Line records now exist in DB with log_ids populated
+  → Popup fetches from DB → works  ✓  (but only because print ran first)
 ```
 
-The same mechanism caused `log_ids` to be empty in the detail popup: the line records either did not exist in the DB (virtual onchange records) or had no `log_ids` because the current month had no data at wizard creation time.
-
-Additionally, no explicit form view existed for `dental.monthly.wizard.line`, so Odoo's auto-generated form did not display `log_ids` in a useful list layout.
+The secondary cause for bug 2/3: `log_ids` was a **stored Many2many** with a relation table. Its data was only written when `action_print_summary` called `self.write(...)`. The detail popup depended on that DB state, so it was empty until after the first print.
 
 ---
 
 ## Changes
 
-### `dentari_lab/models/dental_monthly_wizard.py`
+### `dentari_lab/models/dental_monthly_wizard.py` — two changes
 
-**`action_print_summary` — always re-query and rebuild `preview_ids`**
+#### 1. `action_print_summary` — always re-query and rebuild `preview_ids`
 
 Before:
 ```python
@@ -82,20 +92,42 @@ def action_print_summary(self):
     return self.env.ref('dentari_lab.action_report_monthly_summary').report_action(self)
 ```
 
-Key decisions:
-- Check period validity via `_search_logs()` (uses `period_year`/`period_month` which ARE written, as they are not readonly).
-- Rebuild `preview_ids` — including `log_ids` Many2many — in the same request before passing `self` to the report action.
-- `(5, 0, 0)` deletes any stale lines from the initial `create()` before inserting fresh ones.
+Validity check uses `_search_logs()` (queries by `period_year`/`period_month`, which are not readonly and are correctly in the DB). `(5, 0, 0)` clears stale lines before inserting fresh ones.
+
+#### 2. `log_ids` → computed field; `_build_preview_vals` simplified
+
+`log_ids` was a stored Many2many backed by a relation table (`dental_monthly_wizard_line_log_rel`). It was only populated when `action_print_summary` wrote to the DB, making the detail popup empty before the first print.
+
+**Now computed:**
+
+```python
+log_ids = fields.Many2many(
+    'dental.work.log',
+    string='Munkalapok',
+    compute='_compute_log_ids',
+)
+
+@api.depends('wizard_id.period_year', 'wizard_id.period_month', 'partner_id')
+def _compute_log_ids(self):
+    for line in self:
+        wizard = line.wizard_id
+        if not wizard.period_month or not line.partner_id:
+            line.log_ids = self.env['dental.work.log']
+            continue
+        date_from = date(wizard.period_year, int(wizard.period_month), 1)
+        date_to = date_from + relativedelta(months=1) - timedelta(days=1)
+        line.log_ids = self.env['dental.work.log'].search([
+            ('date', '>=', date_from),
+            ('date', '<=', date_to),
+            ('partner_id', '=', line.partner_id.id),
+        ], order='date, id')
+```
+
+`_build_preview_vals` no longer tracks `log_ids` at all — it only aggregates `log_count` and `total_amount`. The report template's `line.log_ids` call triggers `_compute_log_ids` at render time.
 
 ### `dentari_lab/views/wizard_monthly_views.xml`
 
-**New explicit form view for `dental.monthly.wizard.line`**
-
-Added `view_dental_monthly_wizard_line_form` before the existing wizard form. The popup shows:
-- Partner, log count, total amount (summary header)
-- `log_ids` as a readonly list: date, patient name, work type, pieces, unit price, line total
-
-This replaces Odoo's auto-generated form (which rendered `log_ids` without a useful list layout).
+Added `view_dental_monthly_wizard_line_form` — explicit form view for `dental.monthly.wizard.line`. Replaces Odoo's auto-generated form with a layout that shows `log_ids` as a proper readonly list (date, patient, work type, pieces, unit price, total).
 
 ---
 
@@ -103,7 +135,7 @@ This replaces Odoo's auto-generated form (which rendered `log_ids` without a use
 
 | File | Change |
 |---|---|
-| `dentari_lab/models/dental_monthly_wizard.py` | `action_print_summary` rewritten — re-queries logs, rebuilds preview_ids |
+| `dentari_lab/models/dental_monthly_wizard.py` | `action_print_summary` rewritten; `log_ids` made computed; `_build_preview_vals` simplified |
 | `dentari_lab/views/wizard_monthly_views.xml` | Added form view for `dental.monthly.wizard.line` with `log_ids` list |
 
 ---
@@ -111,7 +143,7 @@ This replaces Odoo's auto-generated form (which rendered `log_ids` without a use
 ## Acceptance Criteria
 
 - [x] "Összesítő nyomtatása" generates the PDF correctly after a period change.
-- [x] Clicking a partner row shows the correct work log detail lines in the popup.
+- [x] Clicking a partner row shows the correct work log lines in the popup **without printing first**.
 - [x] If no logs exist for the selected period, `UserError` is raised with the correct message.
 - [x] Module upgrades cleanly with `-u dentari_lab`.
 
@@ -121,8 +153,8 @@ This replaces Odoo's auto-generated form (which rendered `log_ids` without a use
 
 ### Why not remove `readonly="1"` from `preview_ids`?
 
-Making `preview_ids` editable would allow Odoo to include it in the `write()` payload on button click, which would fix the stale-data problem. However, it would also make the list visually editable (users could accidentally delete rows), and the `_build_preview_vals` / `_onchange_period` logic already handles population. Keeping it readonly and rebuilding server-side on print is the safer approach.
+Making `preview_ids` editable would include it in the `write()` payload on button click, removing the stale-data problem. But it would make the list visually editable (accidental row deletion), and the `_onchange_period` flow already handles population. Keeping it readonly and rebuilding server-side on print is safer.
 
-### Why not store `log_ids` on `dental.monthly.wizard.line` at all?
+### Why make `log_ids` computed instead of stored?
 
-The report template (`report_monthly_summary.xml`) iterates `line.log_ids` directly. Removing `log_ids` from the line model would require passing the period parameters into the report template or using a custom rendering method — a larger refactor. The current fix rebuilds `log_ids` in the same transaction as the print action, which is sufficient.
+A stored Many2many is only written to the DB when `write()` is called explicitly (here: from `action_print_summary`). The detail popup needed DB state that didn't exist until after the first print. A computed field has no DB state — it queries `dental.work.log` live whenever read, so the popup always has correct data regardless of whether the user has printed yet. The `dental_monthly_wizard_line_log_rel` table is no longer used (can be dropped from the DB, causes no harm if left).
