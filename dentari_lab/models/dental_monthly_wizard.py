@@ -127,7 +127,7 @@ class DentalMonthlyWizardLine(models.TransientModel):
         ondelete='cascade',
     )
     partner_id = fields.Many2one('res.partner', string='Megrendelő', readonly=True)
-    log_count = fields.Integer(string='Munkalapok', readonly=True)
+    log_count = fields.Integer(string='Munkalapok száma', readonly=True)
     total_amount = fields.Float(string='Összeg (Ft)', digits=(10, 0), readonly=True)
     period_year = fields.Integer()
     period_month = fields.Char()
