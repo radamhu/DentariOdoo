@@ -27,6 +27,8 @@ class DentalWorkLog(models.Model):
     _description = 'Dental Work Log'
     _inherit = ['mail.thread', 'mail.activity.mixin']
     _order = 'date desc, id desc'
+    # No company_id / _check_company_auto: single-company deployment only.
+    # For multi-company, add company_id + check_company=True on partner_id + allowed_company_ids record rule.
 
     _sql_constraints = [
         ('dentari_lab_pieces_positive', 'CHECK(pieces >= 1)', 'Darabszám legalább 1 kell legyen.'),
@@ -75,6 +77,8 @@ class DentalWorkLog(models.Model):
         default=1,
         tracking=True,
     )
+    # Intentionally editable by technicians: they quote per-piece price at record creation.
+    # Manager-only pricing would require removing required=True and a separate pricing workflow.
     price_per_piece: float = fields.Float(
         string='Egységár (Ft/db)',
         required=True,

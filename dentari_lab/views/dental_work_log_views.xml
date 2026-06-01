@@ -18,7 +18,7 @@
                     <group>
                         <group>
                             <field name="total_revenue" readonly="1"/>
-                            <field name="invoice_id" readonly="1"/>
+                            <field name="invoice_id" readonly="1" groups="dentari_lab.group_lab_manager"/>
                         </group>
                     </group>
                     <group>
@@ -63,8 +63,8 @@
                 <field name="pieces" sum="Összes darab"/>
                 <field name="price_per_piece"/>
                 <field name="total_revenue" sum="Összes összeg"/>
-                <field name="invoice_id" string="Számla" optional="show" readonly="1"/>
-                <field name="invoice_state" string="Számla állapota" optional="show" readonly="1"/>
+                <field name="invoice_id" string="Számla" optional="show" readonly="1" groups="dentari_lab.group_lab_manager"/>
+                <field name="invoice_state" string="Számla állapota" optional="show" readonly="1" groups="dentari_lab.group_lab_manager"/>
                 <field name="user_id" groups="dentari_lab.group_lab_manager"/>
             </list>
         </field>
