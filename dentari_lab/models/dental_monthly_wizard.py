@@ -62,12 +62,24 @@ class DentalMonthlyWizard(models.TransientModel):
 
     @api.onchange('period_year', 'period_month', 'partner_ids')
     def _onchange_period(self):
-        self.preview_ids = [(5, 0, 0)]
         if not self.period_month:
+            if self._origin.id:
+                self._origin.sudo().write({'preview_ids': [(5, 0, 0)]})
+            self.preview_ids = [(5, 0, 0)]
             return
         partner_ids = self.partner_ids.ids if self.partner_ids else []
         logs = self._search_logs(self.period_year, int(self.period_month), partner_ids)
-        self.preview_ids = self._build_preview_vals(logs, self.period_year, self.period_month)
+        new_vals = self._build_preview_vals(logs, self.period_year, self.period_month)
+        if self._origin.id:
+            # Write real DB records so clicking a row opens a persisted record;
+            # virtual onchange records (negative IDs) cannot be looked up by the popup.
+            self._origin.sudo().write({'preview_ids': [(5, 0, 0)] + new_vals})
+            lines = self.env['dental.monthly.wizard.line'].search(
+                [('wizard_id', '=', self._origin.id)], order='id',
+            )
+            self.preview_ids = lines
+        else:
+            self.preview_ids = new_vals
 
     @api.model
     def _search_logs(self, year, month, partner_ids):
