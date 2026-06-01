@@ -133,23 +133,39 @@ class DentalMonthlyWizardLine(models.TransientModel):
     period_month = fields.Char()
     log_ids = fields.Many2many(
         'dental.work.log',
-        string='Munkalapok',
+        string='Munkalap lista',
         compute='_compute_log_ids',
     )
 
     @api.depends('period_year', 'period_month', 'partner_id')
     def _compute_log_ids(self):
-        for line in self:
-            if not line.period_month or not line.partner_id:
-                line.log_ids = self.env['dental.work.log']
-                continue
-            date_from = date(line.period_year, int(line.period_month), 1)
-            date_to = date_from + relativedelta(months=1) - timedelta(days=1)
-            line.log_ids = self.env['dental.work.log'].search([
-                ('date', '>=', date_from),
-                ('date', '<=', date_to),
-                ('partner_id', '=', line.partner_id.id),
-            ], order='date, id')
+        empty = self.env['dental.work.log']
+        lines_with_data = self.filtered(lambda l: l.period_month and l.partner_id)
+        if not lines_with_data:
+            self.log_ids = empty
+            return
+
+        # All lines share one wizard period — one search covers the entire batch.
+        year = lines_with_data[0].period_year
+        month = int(lines_with_data[0].period_month)
+        date_from = date(year, month, 1)
+        date_to = date_from + relativedelta(months=1) - timedelta(days=1)
+        partner_ids = lines_with_data.mapped('partner_id').ids
+        all_logs = self.env['dental.work.log'].search([
+            ('date', '>=', date_from),
+            ('date', '<=', date_to),
+            ('partner_id', 'in', partner_ids),
+        ], order='date, id')
+
+        logs_by_partner = {}
+        for log in all_logs:
+            pid = log.partner_id.id
+            logs_by_partner.setdefault(pid, empty)
+            logs_by_partner[pid] |= log
+
+        for line in lines_with_data:
+            line.log_ids = logs_by_partner.get(line.partner_id.id, empty)
+        (self - lines_with_data).log_ids = empty
 
     def action_open_logs(self):
         self.ensure_one()

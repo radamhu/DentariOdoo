@@ -86,7 +86,7 @@
                 <filter
                     name="filter_this_week"
                     string="E hét"
-                    domain="[('date', '>=', (context_today() + relativedelta(weekday=0, days=-6)).strftime('%Y-%m-%d'))]"
+                    domain="[('date', '>=', (context_today() + datetime.timedelta(days=-context_today().weekday())).strftime('%Y-%m-%d'))]"
                 />
                 <filter
                     name="filter_this_month"
