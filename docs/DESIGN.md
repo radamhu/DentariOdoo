@@ -265,9 +265,11 @@ One row per partner in the wizard preview.
 | `total_amount` | `Float` | `SUM(total_revenue)` |
 | `period_year` | `Integer` | Copied from wizard at line creation — see design note below |
 | `period_month` | `Char` | Copied from wizard at line creation — see design note below |
-| `log_ids` | `Many2many(dental.work.log)` | **Computed** — queries live from `period_year`, `period_month`, `partner_id`; never stored in a relation table |
+| `log_ids` | `Many2many(dental.work.log)` | **Computed** — queries live from `period_year`, `period_month`, `partner_id`; never stored; used by the QWeb report template |
 
-`period_year` and `period_month` are **copied onto the line** (not read via `wizard_id.*`) so that `_compute_log_ids` works correctly on virtual (onchange) records. When the user changes the period in the wizard form, the wizard DB record is not updated until the user clicks a button. If `_compute_log_ids` read from `wizard_id.period_year`, it would get the stale DB value and return empty results. Reading from `line.period_year` (populated by `_build_preview_vals` during the onchange) always gives the correct period. See decisions log §5 entries 11–13.
+`period_year` and `period_month` are **copied onto the line** (not read via `wizard_id.*`) so that `_compute_log_ids` and `action_open_logs` work correctly without reading from the wizard DB record (which holds the stale original period until the user clicks a button). See decisions log §5 entries 11–15.
+
+`action_open_logs` is the UI mechanism for displaying per-partner work logs. It opens a filtered `dental.work.log` list action (`target='new'`). The row-click popup on `preview_ids` is not used for log display — see §5 decision 15.
 
 #### 3.2.4 Constraints
 
@@ -458,23 +460,42 @@ def action_print_summary(self):
 
 #### _compute_log_ids (dental.monthly.wizard.line)
 
-Computed Many2many — queries `dental.work.log` live from `wizard_id.period_year`, `wizard_id.period_month`, and `partner_id`. Never stored in a relation table. Ensures the detail popup and the report template always return correct data whether the line record is persisted or virtual (onchange).
+Computed Many2many — queries `dental.work.log` live from the line's own `period_year`, `period_month`, and `partner_id` fields. Never stored. Used exclusively by the QWeb report template (`line.log_ids.sorted(...)`). Not used for the UI detail view (see `action_open_logs`).
 
 ```python
-@api.depends('wizard_id.period_year', 'wizard_id.period_month', 'partner_id')
+@api.depends('period_year', 'period_month', 'partner_id')
 def _compute_log_ids(self):
     for line in self:
-        wizard = line.wizard_id
-        if not wizard.period_month or not line.partner_id:
+        if not line.period_month or not line.partner_id:
             line.log_ids = self.env['dental.work.log']
             continue
-        date_from = date(wizard.period_year, int(wizard.period_month), 1)
+        date_from = date(line.period_year, int(line.period_month), 1)
         date_to = date_from + relativedelta(months=1) - timedelta(days=1)
         line.log_ids = self.env['dental.work.log'].search([
             ('date', '>=', date_from),
             ('date', '<=', date_to),
             ('partner_id', '=', line.partner_id.id),
         ], order='date, id')
+```
+
+#### action_open_logs (dental.monthly.wizard.line)
+
+Opens a filtered `dental.work.log` list view (`target='new'`) for the line's partner and period. This is the UI mechanism for per-partner detail — it bypasses the OWL readonly One2many popup which reuses the list-load cache and never contains `log_ids` data. Called via a "Részletek" button in the `preview_ids` list.
+
+```python
+def action_open_logs(self):
+    self.ensure_one()
+    date_from = date(self.period_year, int(self.period_month), 1)
+    date_to = date_from + relativedelta(months=1) - timedelta(days=1)
+    return {
+        'type': 'ir.actions.act_window',
+        'name': f'{self.partner_id.name} — {period_label}',
+        'res_model': 'dental.work.log',
+        'view_mode': 'list,form',
+        'domain': [('partner_id', '=', self.partner_id.id),
+                   ('date', '>=', date_from), ('date', '<=', date_to)],
+        'target': 'new',
+    }
 ```
 
 ### 3.6 Selection Field Constants
@@ -538,10 +559,11 @@ WORK_TYPES = [
 | 8 | Custom approval model (`dental.monthly.statement`) vs draft invoice? | Draft `account.move` — Phase 2 only | 2026-05-31 | Draft→posted lifecycle already implements the approval state machine; custom model would duplicate this without adding value; not created in Phase 1 while 3rd party invoicing is active |
 | 9 | Partner portal for approval? | Out of scope for M5 | 2026-05-31 | Partners confirm by email/phone; lab_manager manually posts the invoice; portal can be added in a future milestone without model changes |
 | 10 | Create draft `account.move` in Phase 1 (before invoicing go-live)? | No — QWeb PDF only | 2026-05-31 | While a 3rd party system issues the real invoice, Odoo draft invoices would be misleading and risk backdated NAV reporting when eventually posted |
-| 11 | `log_ids` on `dental.monthly.wizard.line`: stored Many2many or computed? | Computed | 2026-06-01 | A stored Many2many is only written when `action_print_summary` calls `write()`. Before the first print, the detail popup read from a virtual onchange record where `log_ids` was not in the client cache — always empty. A computed field queries `dental.work.log` live (period + partner), so the popup is correct before and after printing, with no DB state dependency. |
+| 11 | `log_ids` on `dental.monthly.wizard.line`: stored Many2many or computed? | Computed | 2026-06-01 | A stored Many2many is only written when `action_print_summary` calls `write()`. The computed field queries `dental.work.log` live and is used by the QWeb report template. UI detail display is handled by `action_open_logs` (see decision 15), not by the popup. |
 | 12 | Should `action_print_summary` rely on `self.preview_ids` for the "no data" check? | No — always re-query via `_search_logs()` | 2026-06-01 | `preview_ids` is `readonly="1"` in the form; Odoo excludes readonly fields from the `write()` payload on button click. If the user changed the period (onchange updated the client view) and then clicked print, the server-side `preview_ids` was still the initial (possibly empty) state from `create()`. Direct re-query from the non-readonly period fields is the only reliable check. |
 | 13 | Should `_compute_log_ids` read the period from `wizard_id.*` or from line-local fields? | Line-local `period_year`/`period_month` fields | 2026-06-01 | Reading `wizard_id.period_year` queries the DB wizard record, which holds the original period until the user clicks a button. For virtual onchange lines (before any button click), this gives the wrong (stale) period → empty `log_ids`. Copying the period into each line during `_build_preview_vals` makes the compute self-contained and correct for both virtual and persisted line records. |
-| 14 | Should `_onchange_period` return virtual (negative-ID) records or real DB records? | Real DB records via `self._origin.write()` | 2026-06-01 | Odoo's One2many popup always does a server-side record lookup by ID. Virtual records (negative IDs from onchange) don't exist in the DB — the lookup fails silently and the popup is empty. Writing via `self._origin.sudo().write(...)` in the onchange creates real DB records immediately; `self._origin` is the actual persisted wizard record in onchange context. The onchange then returns these real IDs (`self.preview_ids = lines`) so clicking a row opens a real DB record where `_compute_log_ids` can run correctly. |
+| 14 | Should `_onchange_period` return virtual (negative-ID) records or real DB records? | Real DB records via `self._origin.write()` | 2026-06-01 | Odoo's One2many popup looks up records server-side by ID. Virtual records (negative IDs) don't exist in the DB — the lookup fails silently. Writing via `self._origin.sudo().write(...)` creates real DB records immediately; the onchange returns real IDs so row-level `type="object"` buttons (e.g. `action_open_logs`) can be called reliably. |
+| 15 | How to display per-partner work log detail — row-click popup or explicit button? | Explicit `action_open_logs` button (confirmed by XML-RPC diagnosis) | 2026-06-01 | Live XML-RPC diagnosis proved: backend `web_read` returns correct `log_ids` data; the bug was in the OWL client. Odoo 18 readonly One2many popups reuse the list-load cache (only visible columns: `partner_id`, `log_count`, `total_amount`) and never issue a fresh `web_read`. `log_ids` is never in that cache → popup always empty. The row-click popup cannot be fixed from the module layer. A "Részletek" button calling `action_open_logs` (an `ir.actions.act_window` filtered by partner + period) bypasses OWL caching entirely and reliably shows the correct work logs. |
 
 ---
 
