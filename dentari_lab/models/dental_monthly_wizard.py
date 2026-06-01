@@ -1,3 +1,8 @@
+import base64
+import io
+import re
+import unicodedata
+import zipfile
 from datetime import date, timedelta
 from dateutil.relativedelta import relativedelta
 from odoo import api, fields, models, _
@@ -114,7 +119,27 @@ class DentalMonthlyWizard(models.TransientModel):
                 logs, self.period_year, self.period_month
             ),
         })
-        return self.env.ref('dentari_lab.action_report_monthly_summary').report_action(self)
+        report = self.env.ref('dentari_lab.action_report_monthly_summary')
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
+            for line in self.preview_ids:
+                pdf_content, _ = report._render_qweb_pdf(report.id, [line.id])
+                nfkd = unicodedata.normalize('NFKD', line.partner_id.name or 'partner')
+                safe_name = re.sub(r'[^A-Za-z0-9_\-]', '_', nfkd.encode('ASCII', 'ignore').decode('ASCII'))
+                filename = f'Havi_Osszesito_{self.period_year}_{self.period_month}_{safe_name}.pdf'
+                zf.writestr(filename, pdf_content)
+        attachment = self.env['ir.attachment'].create({
+            'name': f'Havi_Osszesito_{self.period_year}_{self.period_month}.zip',
+            'type': 'binary',
+            'datas': base64.b64encode(zip_buffer.getvalue()),
+            'res_model': self._name,
+            'res_id': self.id,
+        })
+        return {
+            'type': 'ir.actions.act_url',
+            'url': f'/web/content/{attachment.id}?download=true',
+            'target': 'new',
+        }
 
 
 class DentalMonthlyWizardLine(models.TransientModel):

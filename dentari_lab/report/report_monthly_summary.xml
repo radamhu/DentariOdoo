@@ -2,69 +2,65 @@
 <odoo>
     <record id="action_report_monthly_summary" model="ir.actions.report">
         <field name="name">Havi Összesítő</field>
-        <field name="model">dental.monthly.wizard</field>
+        <field name="model">dental.monthly.wizard.line</field>
         <field name="report_type">qweb-pdf</field>
         <field name="report_name">dentari_lab.report_monthly_summary</field>
         <field name="report_file">dentari_lab.report_monthly_summary</field>
-        <field name="print_report_name">'Havi_Osszesito_%s_%s' % (object.period_year, object.period_month)</field>
+        <field name="print_report_name">'Havi_Osszesito_%s_%s_%s' % (object.period_year, object.period_month, object.partner_id.name)</field>
         <field name="paperformat_id" ref="base.paperformat_euro"/>
     </record>
 
     <template id="report_monthly_summary">
         <t t-call="web.html_container">
-            <t t-foreach="docs" t-as="wizard">
+            <t t-foreach="docs" t-as="line">
+                <t t-set="wizard" t-value="line.wizard_id"/>
                 <t t-set="work_types" t-value="{'korona': 'Korona', 'hid': 'Híd', 'implant': 'Implant', 'facet': 'Facet', 'ideiglenes': 'Ideiglenes', 'javitas': 'Javítás', 'monolitikus': 'Monolitikus', 'egyeb': 'Egyéb'}"/>
                 <t t-call="web.external_layout">
-                    <t t-foreach="wizard.preview_ids" t-as="line">
-                        <div class="page">
-                            <t t-if="not line_first">
-                                <p style="page-break-before: always;"/>
-                            </t>
-                            <h2 class="mb-1">Havi Összesítő</h2>
-                            <div class="row mb-4">
-                                <div class="col-6">
-                                    <span class="text-muted">Időszak: </span>
-                                    <strong t-esc="wizard.period_label"/>
-                                </div>
-                                <div class="col-6">
-                                    <span class="text-muted">Megrendelő: </span>
-                                    <strong><t t-esc="line.partner_id.name"/></strong>
-                                </div>
+                    <div class="page">
+                        <h2 class="mb-1">Havi Összesítő</h2>
+                        <div class="row mb-4">
+                            <div class="col-6">
+                                <span class="text-muted">Időszak: </span>
+                                <strong t-esc="wizard.period_label"/>
                             </div>
-                            <table class="table table-sm table-bordered">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th>Dátum</th>
-                                        <th>Páciens</th>
-                                        <th>Munka típusa</th>
-                                        <th class="text-end">db</th>
-                                        <th class="text-end">Egységár (Ft)</th>
-                                        <th class="text-end">Összeg (Ft)</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <t t-foreach="line.log_ids.sorted(key=lambda r: (r.date, r.id))" t-as="log">
-                                        <tr>
-                                            <td><t t-esc="log.date.strftime('%Y-%m-%d')"/></td>
-                                            <td><t t-esc="log.patient_name or ''"/></td>
-                                            <td><t t-esc="work_types.get(log.work_type, log.work_type or '')"/></td>
-                                            <td class="text-end"><t t-esc="log.pieces"/></td>
-                                            <td class="text-end"><t t-esc="'{:,.0f}'.format(log.price_per_piece)"/></td>
-                                            <td class="text-end"><t t-esc="'{:,.0f}'.format(log.total_revenue)"/></td>
-                                        </tr>
-                                    </t>
-                                </tbody>
-                                <tfoot>
-                                    <tr class="fw-bold">
-                                        <td colspan="5" class="text-end">Összesen:</td>
-                                        <td class="text-end">
-                                            <t t-esc="'{:,.0f} Ft'.format(line.total_amount)"/>
-                                        </td>
-                                    </tr>
-                                </tfoot>
-                            </table>
+                            <div class="col-6">
+                                <span class="text-muted">Megrendelő: </span>
+                                <strong><t t-esc="line.partner_id.name"/></strong>
+                            </div>
                         </div>
-                    </t>
+                        <table class="table table-sm table-bordered">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Dátum</th>
+                                    <th>Páciens</th>
+                                    <th>Munka típusa</th>
+                                    <th class="text-end">db</th>
+                                    <th class="text-end">Egységár (Ft)</th>
+                                    <th class="text-end">Összeg (Ft)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <t t-foreach="line.log_ids.sorted(key=lambda r: (r.date, r.id))" t-as="log">
+                                    <tr>
+                                        <td><t t-esc="log.date.strftime('%Y-%m-%d')"/></td>
+                                        <td><t t-esc="log.patient_name or ''"/></td>
+                                        <td><t t-esc="work_types.get(log.work_type, log.work_type or '')"/></td>
+                                        <td class="text-end"><t t-esc="log.pieces"/></td>
+                                        <td class="text-end"><t t-esc="'{:,.0f}'.format(log.price_per_piece)"/></td>
+                                        <td class="text-end"><t t-esc="'{:,.0f}'.format(log.total_revenue)"/></td>
+                                    </tr>
+                                </t>
+                            </tbody>
+                            <tfoot>
+                                <tr class="fw-bold">
+                                    <td colspan="5" class="text-end">Összesen:</td>
+                                    <td class="text-end">
+                                        <t t-esc="'{:,.0f} Ft'.format(line.total_amount)"/>
+                                    </td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
                 </t>
             </t>
         </t>
