@@ -57,7 +57,7 @@ class DentalMonthlyWizard(models.TransientModel):
             year = res.get('period_year', today.year)
             month = int(res.get('period_month', str(today.month)))
             logs = self._search_logs(year, month, [])
-            res['preview_ids'] = self._build_preview_vals(logs)
+            res['preview_ids'] = self._build_preview_vals(logs, year, str(month))
         return res
 
     @api.onchange('period_year', 'period_month', 'partner_ids')
@@ -67,7 +67,7 @@ class DentalMonthlyWizard(models.TransientModel):
             return
         partner_ids = self.partner_ids.ids if self.partner_ids else []
         logs = self._search_logs(self.period_year, int(self.period_month), partner_ids)
-        self.preview_ids = self._build_preview_vals(logs)
+        self.preview_ids = self._build_preview_vals(logs, self.period_year, self.period_month)
 
     @api.model
     def _search_logs(self, year, month, partner_ids):
@@ -79,7 +79,7 @@ class DentalMonthlyWizard(models.TransientModel):
         return self.env['dental.work.log'].search(domain, order='partner_id, date, id')
 
     @api.model
-    def _build_preview_vals(self, logs):
+    def _build_preview_vals(self, logs, year, month):
         summary = {}
         for log in logs:
             pid = log.partner_id.id
@@ -88,6 +88,8 @@ class DentalMonthlyWizard(models.TransientModel):
                     'partner_id': pid,
                     'log_count': 0,
                     'total_amount': 0.0,
+                    'period_year': year,
+                    'period_month': str(month),
                 }
             summary[pid]['log_count'] += 1
             summary[pid]['total_amount'] += log.total_revenue
@@ -101,7 +103,11 @@ class DentalMonthlyWizard(models.TransientModel):
             raise UserError(_('Nincs munkalap a kiválasztott időszakban.'))
         # preview_ids is readonly in the view, so it's not sent back on button click;
         # always rebuild from the current period to ensure the report template has correct data.
-        self.write({'preview_ids': [(5, 0, 0)] + self._build_preview_vals(logs)})
+        self.write({
+            'preview_ids': [(5, 0, 0)] + self._build_preview_vals(
+                logs, self.period_year, self.period_month
+            ),
+        })
         return self.env.ref('dentari_lab.action_report_monthly_summary').report_action(self)
 
 
@@ -117,20 +123,23 @@ class DentalMonthlyWizardLine(models.TransientModel):
     partner_id = fields.Many2one('res.partner', string='Megrendelő', readonly=True)
     log_count = fields.Integer(string='Munkalapok', readonly=True)
     total_amount = fields.Float(string='Összeg (Ft)', digits=(10, 0), readonly=True)
+    # Copied from the wizard so _compute_log_ids works on virtual (onchange) records
+    # without reading wizard_id from the DB (which still holds the old period at that point).
+    period_year = fields.Integer()
+    period_month = fields.Char()
     log_ids = fields.Many2many(
         'dental.work.log',
         string='Munkalapok',
         compute='_compute_log_ids',
     )
 
-    @api.depends('wizard_id.period_year', 'wizard_id.period_month', 'partner_id')
+    @api.depends('period_year', 'period_month', 'partner_id')
     def _compute_log_ids(self):
         for line in self:
-            wizard = line.wizard_id
-            if not wizard.period_month or not line.partner_id:
+            if not line.period_month or not line.partner_id:
                 line.log_ids = self.env['dental.work.log']
                 continue
-            date_from = date(wizard.period_year, int(wizard.period_month), 1)
+            date_from = date(line.period_year, int(line.period_month), 1)
             date_to = date_from + relativedelta(months=1) - timedelta(days=1)
             line.log_ids = self.env['dental.work.log'].search([
                 ('date', '>=', date_from),

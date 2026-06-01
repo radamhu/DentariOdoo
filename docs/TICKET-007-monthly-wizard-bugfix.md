@@ -16,69 +16,68 @@
 
 ## Summary
 
-Three bugs found after TICKET-006 delivery:
+Three bugs found after TICKET-006 delivery — all rooted in how Odoo handles readonly One2many fields and TransientModel state:
 
 1. **"Összesítő nyomtatása" raised `UserError: Nincs munkalap a kiválasztott időszakban.`** even when the partner preview correctly showed data.
-2. **Clicking a partner row opened an empty detail popup** — `log_ids` was missing.
-3. **`log_ids` only appeared in the popup after the PDF had been generated at least once** — before the first print, the detail popup was always empty.
-
-All three stem from the same root cause.
+2. **Clicking a partner row opened an empty detail popup** — `log_ids` was missing entirely (no form view, stored Many2many never written).
+3. **After making `log_ids` computed, the popup was still empty before the first print** — the compute depended on `wizard_id.period_*` which was stale in the DB (user had changed the period via onchange but the wizard DB record hadn't been updated yet).
 
 ---
 
-## Root Cause
+## Root Cause — Three Layers
 
-**Odoo does not send readonly field values back to the server when a button is clicked**, and **onchange-produced One2many records are virtual (client-only) until explicitly written to the database.**
+### Layer 1 — readonly One2many not written on button click
 
-### Detailed trace
+`preview_ids` is `readonly="1"` in the form view. Odoo excludes readonly fields from the `write()` payload sent to the server on button click. The server-side wizard record therefore retains whatever `preview_ids` state existed at initial `create()` time (which may be empty if the current month has no data).
 
 ```
-Wizard opens (current month = June 2026, no data)
-  → default_get() → _search_logs() returns []
-  → create() stores wizard with preview_ids = []   ← DB is EMPTY
+Wizard opens (June 2026, no data)
+  → default_get() → create() with preview_ids = []   ← DB EMPTY
 
-User changes period to May 2026
-  → _onchange_period() fires
-  → Client UI shows partner rows (virtual, not persisted to DB)
-  → DB wizard record still has preview_ids = []
-
-User clicks on a partner row
-  → Popup opens for the virtual line record
-  → log_ids not in client cache (not in the One2many <list> view columns)
-  → Popup shows empty log list  ✗
+User changes to May 2026
+  → _onchange_period() → client UI updated (virtual records)
+  → DB wizard: preview_ids still []
 
 User clicks "Összesítő nyomtatása"
-  → Client sends write() — preview_ids is readonly="1" → NOT included
-  → Server-side self.preview_ids is still []
-  → action_print_summary() checks `if not self.preview_ids` → UserError  ✗
-
-  — After the first print (action_print_summary ran write()) —
-
-User clicks on a partner row
-  → Line records now exist in DB with log_ids populated
-  → Popup fetches from DB → works  ✓  (but only because print ran first)
+  → client write() — preview_ids excluded (readonly)
+  → server: self.preview_ids = []  → UserError ✗
 ```
 
-The secondary cause for bug 2/3: `log_ids` was a **stored Many2many** with a relation table. Its data was only written when `action_print_summary` called `self.write(...)`. The detail popup depended on that DB state, so it was empty until after the first print.
+### Layer 2 — stored Many2many only written by action_print_summary
+
+`log_ids` was a stored Many2many backed by `dental_monthly_wizard_line_log_rel`. Data was only inserted when `action_print_summary` called `self.write(...)`. Before the first print, the relation table had no rows — the detail popup was always empty.
+
+### Layer 3 — computed field read wizard period from DB, not from current client state
+
+After converting `log_ids` to a computed field with `@api.depends('wizard_id.period_year', 'wizard_id.period_month', 'partner_id')`, the popup was still empty before printing. Reason: when the popup opens for a virtual line (from onchange), the server computes `log_ids` by reading `line.wizard_id.period_year` from the **DB** — which still holds the original period (e.g. June 2026), not the changed one (e.g. May 2026). The write that updates `period_year`/`period_month` on the wizard only happens when the user clicks a button — not when changing fields in the form.
+
+```
+User changes period to May 2026 (onchange — DB wizard not updated)
+  → virtual lines created with correct partner/count/amount
+
+User clicks partner row
+  → popup opens for virtual line
+  → server runs _compute_log_ids
+  → reads wizard_id.period_year from DB → June 2026 (stale!)
+  → no logs found → log_ids empty ✗
+
+User clicks "Összesítő nyomtatása"
+  → client write() sends period_year=2026, period_month='5' to server
+  → wizard DB record updated with correct period
+  → action_print_summary rebuilds preview_ids in DB
+  → popup now reads correct period from DB → works ✓
+```
 
 ---
 
 ## Changes
 
-### `dentari_lab/models/dental_monthly_wizard.py` — two changes
+### `dentari_lab/models/dental_monthly_wizard.py`
 
 #### 1. `action_print_summary` — always re-query and rebuild `preview_ids`
 
-Before:
-```python
-def action_print_summary(self):
-    self.ensure_one()
-    if not self.preview_ids:
-        raise UserError(_('Nincs munkalap a kiválasztott időszakban.'))
-    return self.env.ref('dentari_lab.action_report_monthly_summary').report_action(self)
-```
+Fixes Layer 1. Validity check via `_search_logs()` (uses non-readonly `period_year`/`period_month`). Rebuilds `preview_ids` unconditionally before passing `self` to the report action.
 
-After:
 ```python
 def action_print_summary(self):
     self.ensure_one()
@@ -86,35 +85,37 @@ def action_print_summary(self):
     logs = self._search_logs(self.period_year, int(self.period_month), partner_ids)
     if not logs:
         raise UserError(_('Nincs munkalap a kiválasztott időszakban.'))
-    # preview_ids is readonly in the view so it is not sent back on button click;
-    # always rebuild from the current period to ensure the report template has correct data.
-    self.write({'preview_ids': [(5, 0, 0)] + self._build_preview_vals(logs)})
+    self.write({
+        'preview_ids': [(5, 0, 0)] + self._build_preview_vals(
+            logs, self.period_year, self.period_month
+        ),
+    })
     return self.env.ref('dentari_lab.action_report_monthly_summary').report_action(self)
 ```
 
-Validity check uses `_search_logs()` (queries by `period_year`/`period_month`, which are not readonly and are correctly in the DB). `(5, 0, 0)` clears stale lines before inserting fresh ones.
+#### 2. `log_ids` → computed field (fixes Layer 2)
 
-#### 2. `log_ids` → computed field; `_build_preview_vals` simplified
+Removed the stored Many2many. `log_ids` is now computed — queries `dental.work.log` live. The `dental_monthly_wizard_line_log_rel` relation table is no longer used.
 
-`log_ids` was a stored Many2many backed by a relation table (`dental_monthly_wizard_line_log_rel`). It was only populated when `action_print_summary` wrote to the DB, making the detail popup empty before the first print.
+#### 3. `period_year` / `period_month` copied onto the line (fixes Layer 3)
 
-**Now computed:**
+Added `period_year = fields.Integer()` and `period_month = fields.Char()` to `DentalMonthlyWizardLine`. `_build_preview_vals` now accepts and includes these values in each line's `(0, 0, vals)` command. `_compute_log_ids` depends on these line-level fields instead of `wizard_id.period_*`.
+
+Because `_onchange_period` returns virtual line records with `period_year`/`period_month` embedded in the vals, those values are available in the client cache for the virtual records. When the popup opens and Odoo computes `log_ids`, it has the correct period from the line's own data — no DB read of the wizard required.
 
 ```python
-log_ids = fields.Many2many(
-    'dental.work.log',
-    string='Munkalapok',
-    compute='_compute_log_ids',
-)
+# DentalMonthlyWizardLine
+period_year = fields.Integer()
+period_month = fields.Char()
+log_ids = fields.Many2many('dental.work.log', compute='_compute_log_ids')
 
-@api.depends('wizard_id.period_year', 'wizard_id.period_month', 'partner_id')
+@api.depends('period_year', 'period_month', 'partner_id')
 def _compute_log_ids(self):
     for line in self:
-        wizard = line.wizard_id
-        if not wizard.period_month or not line.partner_id:
+        if not line.period_month or not line.partner_id:
             line.log_ids = self.env['dental.work.log']
             continue
-        date_from = date(wizard.period_year, int(wizard.period_month), 1)
+        date_from = date(line.period_year, int(line.period_month), 1)
         date_to = date_from + relativedelta(months=1) - timedelta(days=1)
         line.log_ids = self.env['dental.work.log'].search([
             ('date', '>=', date_from),
@@ -123,11 +124,41 @@ def _compute_log_ids(self):
         ], order='date, id')
 ```
 
-`_build_preview_vals` no longer tracks `log_ids` at all — it only aggregates `log_count` and `total_amount`. The report template's `line.log_ids` call triggers `_compute_log_ids` at render time.
+```python
+# DentalMonthlyWizard
+@api.model
+def _build_preview_vals(self, logs, year, month):
+    summary = {}
+    for log in logs:
+        pid = log.partner_id.id
+        if pid not in summary:
+            summary[pid] = {
+                'partner_id': pid,
+                'log_count': 0,
+                'total_amount': 0.0,
+                'period_year': year,
+                'period_month': str(month),
+            }
+        summary[pid]['log_count'] += 1
+        summary[pid]['total_amount'] += log.total_revenue
+    return [(0, 0, vals) for vals in summary.values()]
+```
 
 ### `dentari_lab/views/wizard_monthly_views.xml`
 
-Added `view_dental_monthly_wizard_line_form` — explicit form view for `dental.monthly.wizard.line`. Replaces Odoo's auto-generated form with a layout that shows `log_ids` as a proper readonly list (date, patient, work type, pieces, unit price, total).
+Two changes:
+
+1. Added explicit form view for `dental.monthly.wizard.line` with `log_ids` displayed as a readonly list (date, patient, work type, pieces, unit price, total). Replaces Odoo's auto-generated form.
+
+2. Added `period_year` and `period_month` as `invisible="1"` fields in that form view. This ensures Odoo includes them in the onchange payload when the popup opens for a virtual line — making them available to `_compute_log_ids` on the server.
+
+```xml
+<form string="Munkalapok – részletek">
+    <field name="period_year" invisible="1"/>
+    <field name="period_month" invisible="1"/>
+    ...
+</form>
+```
 
 ---
 
@@ -135,8 +166,8 @@ Added `view_dental_monthly_wizard_line_form` — explicit form view for `dental.
 
 | File | Change |
 |---|---|
-| `dentari_lab/models/dental_monthly_wizard.py` | `action_print_summary` rewritten; `log_ids` made computed; `_build_preview_vals` simplified |
-| `dentari_lab/views/wizard_monthly_views.xml` | Added form view for `dental.monthly.wizard.line` with `log_ids` list |
+| `dentari_lab/models/dental_monthly_wizard.py` | `action_print_summary` rewritten; `log_ids` computed; `period_year`/`period_month` added to line; `_build_preview_vals` updated |
+| `dentari_lab/views/wizard_monthly_views.xml` | Line form view added with `log_ids` list and invisible period fields |
 
 ---
 
@@ -144,6 +175,7 @@ Added `view_dental_monthly_wizard_line_form` — explicit form view for `dental.
 
 - [x] "Összesítő nyomtatása" generates the PDF correctly after a period change.
 - [x] Clicking a partner row shows the correct work log lines in the popup **without printing first**.
+- [x] Popup shows correct lines even after changing the period (before any print).
 - [x] If no logs exist for the selected period, `UserError` is raised with the correct message.
 - [x] Module upgrades cleanly with `-u dentari_lab`.
 
@@ -153,8 +185,12 @@ Added `view_dental_monthly_wizard_line_form` — explicit form view for `dental.
 
 ### Why not remove `readonly="1"` from `preview_ids`?
 
-Making `preview_ids` editable would include it in the `write()` payload on button click, removing the stale-data problem. But it would make the list visually editable (accidental row deletion), and the `_onchange_period` flow already handles population. Keeping it readonly and rebuilding server-side on print is safer.
+Making `preview_ids` editable would include it in the `write()` payload, removing Layer 1. But it would make the list visually editable (accidental deletions) and the onchange flow already handles population. Rebuilding server-side on print is safer.
 
-### Why make `log_ids` computed instead of stored?
+### Why copy period onto the line instead of reading from wizard?
 
-A stored Many2many is only written to the DB when `write()` is called explicitly (here: from `action_print_summary`). The detail popup needed DB state that didn't exist until after the first print. A computed field has no DB state — it queries `dental.work.log` live whenever read, so the popup always has correct data regardless of whether the user has printed yet. The `dental_monthly_wizard_line_log_rel` table is no longer used (can be dropped from the DB, causes no harm if left).
+Reading `wizard_id.period_year`/`wizard_id.period_month` works only after the wizard DB record has been updated (i.e. after the user clicks a button). For virtual onchange lines (before any button click), the wizard DB record still holds the original period. Copying `period_year`/`period_month` into each line's vals during `_build_preview_vals` makes the compute self-contained — it uses line-local data that is correctly populated in both virtual and persisted line records.
+
+### Why `invisible="1"` instead of omitting the period fields from the popup view?
+
+Odoo includes fields in the onchange payload only if they appear in the active form view (even as invisible). Without them in the view, `_compute_log_ids` would receive `period_year=0` and `period_month=False` for virtual lines, producing an empty result.

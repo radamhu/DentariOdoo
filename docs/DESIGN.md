@@ -263,9 +263,11 @@ One row per partner in the wizard preview.
 | `partner_id` | `Many2one(res.partner)` | Clinic |
 | `log_count` | `Integer` | Count of work logs in the period for this partner |
 | `total_amount` | `Float` | `SUM(total_revenue)` |
-| `log_ids` | `Many2many(dental.work.log)` | **Computed** — queries live from `wizard_id.period_year`, `wizard_id.period_month`, `partner_id`; never stored in a relation table |
+| `period_year` | `Integer` | Copied from wizard at line creation — see design note below |
+| `period_month` | `Char` | Copied from wizard at line creation — see design note below |
+| `log_ids` | `Many2many(dental.work.log)` | **Computed** — queries live from `period_year`, `period_month`, `partner_id`; never stored in a relation table |
 
-`log_ids` is intentionally computed (not stored) so the detail popup and the report template always get correct data regardless of whether `preview_ids` has been persisted to the database. See decisions log §5 entry 11.
+`period_year` and `period_month` are **copied onto the line** (not read via `wizard_id.*`) so that `_compute_log_ids` works correctly on virtual (onchange) records. When the user changes the period in the wizard form, the wizard DB record is not updated until the user clicks a button. If `_compute_log_ids` read from `wizard_id.period_year`, it would get the stale DB value and return empty results. Reading from `line.period_year` (populated by `_build_preview_vals` during the onchange) always gives the correct period. See decisions log §5 entries 11–13.
 
 #### 3.2.4 Constraints
 
@@ -538,6 +540,7 @@ WORK_TYPES = [
 | 10 | Create draft `account.move` in Phase 1 (before invoicing go-live)? | No — QWeb PDF only | 2026-05-31 | While a 3rd party system issues the real invoice, Odoo draft invoices would be misleading and risk backdated NAV reporting when eventually posted |
 | 11 | `log_ids` on `dental.monthly.wizard.line`: stored Many2many or computed? | Computed | 2026-06-01 | A stored Many2many is only written when `action_print_summary` calls `write()`. Before the first print, the detail popup read from a virtual onchange record where `log_ids` was not in the client cache — always empty. A computed field queries `dental.work.log` live (period + partner), so the popup is correct before and after printing, with no DB state dependency. |
 | 12 | Should `action_print_summary` rely on `self.preview_ids` for the "no data" check? | No — always re-query via `_search_logs()` | 2026-06-01 | `preview_ids` is `readonly="1"` in the form; Odoo excludes readonly fields from the `write()` payload on button click. If the user changed the period (onchange updated the client view) and then clicked print, the server-side `preview_ids` was still the initial (possibly empty) state from `create()`. Direct re-query from the non-readonly period fields is the only reliable check. |
+| 13 | Should `_compute_log_ids` read the period from `wizard_id.*` or from line-local fields? | Line-local `period_year`/`period_month` fields | 2026-06-01 | Reading `wizard_id.period_year` queries the DB wizard record, which holds the original period until the user clicks a button. For virtual onchange lines (before any button click), this gives the wrong (stale) period → empty `log_ids`. Copying the period into each line during `_build_preview_vals` makes the compute self-contained and correct for both virtual and persisted line records. |
 
 ---
 

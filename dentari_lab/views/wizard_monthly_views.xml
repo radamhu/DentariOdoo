@@ -5,6 +5,8 @@
         <field name="model">dental.monthly.wizard.line</field>
         <field name="arch" type="xml">
             <form string="Munkalapok – részletek">
+                <field name="period_year" invisible="1"/>
+                <field name="period_month" invisible="1"/>
                 <group>
                     <field name="partner_id" readonly="1"/>
                     <field name="log_count" string="Munkalapok száma" readonly="1"/>
