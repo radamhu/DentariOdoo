@@ -102,8 +102,13 @@ class DentalMonthlyWizard(models.TransientModel):
 
     def action_print_summary(self):
         self.ensure_one()
-        if not self.preview_ids:
+        partner_ids = self.partner_ids.ids if self.partner_ids else []
+        logs = self._search_logs(self.period_year, int(self.period_month), partner_ids)
+        if not logs:
             raise UserError(_('Nincs munkalap a kiválasztott időszakban.'))
+        # preview_ids is readonly in the view, so it's not sent back on button click;
+        # always rebuild from the current period to ensure the report template has correct data.
+        self.write({'preview_ids': [(5, 0, 0)] + self._build_preview_vals(logs)})
         return self.env.ref('dentari_lab.action_report_monthly_summary').report_action(self)
 
 
