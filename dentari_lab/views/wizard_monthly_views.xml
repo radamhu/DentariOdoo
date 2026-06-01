@@ -49,6 +49,9 @@
                             <field name="partner_id"/>
                             <field name="log_count" string="Munkalapok"/>
                             <field name="total_amount" string="Összeg (Ft)"/>
+                            <button name="action_open_logs" type="object"
+                                    icon="fa-list" title="Munkalapok megtekintése"
+                                    string="Részletek"/>
                         </list>
                     </field>
                 </group>

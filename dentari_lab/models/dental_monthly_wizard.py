@@ -158,3 +158,24 @@ class DentalMonthlyWizardLine(models.TransientModel):
                 ('date', '<=', date_to),
                 ('partner_id', '=', line.partner_id.id),
             ], order='date, id')
+
+    def action_open_logs(self):
+        self.ensure_one()
+        date_from = date(self.period_year, int(self.period_month), 1)
+        date_to = date_from + relativedelta(months=1) - timedelta(days=1)
+        month_names = dict(MONTHS)
+        period_label = (
+            f"{self.period_year}. {month_names.get(self.period_month, self.period_month).lower()}"
+        )
+        return {
+            'type': 'ir.actions.act_window',
+            'name': f'{self.partner_id.name} — {period_label}',
+            'res_model': 'dental.work.log',
+            'view_mode': 'list,form',
+            'domain': [
+                ('partner_id', '=', self.partner_id.id),
+                ('date', '>=', date_from),
+                ('date', '<=', date_to),
+            ],
+            'target': 'new',
+        }
