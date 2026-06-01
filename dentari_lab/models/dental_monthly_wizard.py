@@ -60,26 +60,22 @@ class DentalMonthlyWizard(models.TransientModel):
             res['preview_ids'] = self._build_preview_vals(logs, year, str(month))
         return res
 
-    @api.onchange('period_year', 'period_month', 'partner_ids')
-    def _onchange_period(self):
-        if not self.period_month:
-            if self._origin.id:
-                self._origin.sudo().write({'preview_ids': [(5, 0, 0)]})
-            self.preview_ids = [(5, 0, 0)]
-            return
+    def action_query(self):
+        self.ensure_one()
         partner_ids = self.partner_ids.ids if self.partner_ids else []
         logs = self._search_logs(self.period_year, int(self.period_month), partner_ids)
-        new_vals = self._build_preview_vals(logs, self.period_year, self.period_month)
-        if self._origin.id:
-            # Write real DB records so clicking a row opens a persisted record;
-            # virtual onchange records (negative IDs) cannot be looked up by the popup.
-            self._origin.sudo().write({'preview_ids': [(5, 0, 0)] + new_vals})
-            lines = self.env['dental.monthly.wizard.line'].search(
-                [('wizard_id', '=', self._origin.id)], order='id',
-            )
-            self.preview_ids = lines
-        else:
-            self.preview_ids = new_vals
+        self.write({
+            'preview_ids': [(5, 0, 0)] + self._build_preview_vals(
+                logs, self.period_year, self.period_month
+            ),
+        })
+        return {
+            'type': 'ir.actions.act_window',
+            'res_model': 'dental.monthly.wizard',
+            'res_id': self.id,
+            'view_mode': 'form',
+            'target': 'new',
+        }
 
     @api.model
     def _search_logs(self, year, month, partner_ids):
@@ -113,8 +109,6 @@ class DentalMonthlyWizard(models.TransientModel):
         logs = self._search_logs(self.period_year, int(self.period_month), partner_ids)
         if not logs:
             raise UserError(_('Nincs munkalap a kiválasztott időszakban.'))
-        # preview_ids is readonly in the view, so it's not sent back on button click;
-        # always rebuild from the current period to ensure the report template has correct data.
         self.write({
             'preview_ids': [(5, 0, 0)] + self._build_preview_vals(
                 logs, self.period_year, self.period_month
@@ -135,8 +129,6 @@ class DentalMonthlyWizardLine(models.TransientModel):
     partner_id = fields.Many2one('res.partner', string='Megrendelő', readonly=True)
     log_count = fields.Integer(string='Munkalapok', readonly=True)
     total_amount = fields.Float(string='Összeg (Ft)', digits=(10, 0), readonly=True)
-    # Copied from the wizard so _compute_log_ids works on virtual (onchange) records
-    # without reading wizard_id from the DB (which still holds the old period at that point).
     period_year = fields.Integer()
     period_month = fields.Char()
     log_ids = fields.Many2many(

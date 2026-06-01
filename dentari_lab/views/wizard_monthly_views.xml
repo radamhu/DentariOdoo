@@ -58,6 +58,8 @@
                 <footer>
                     <button name="action_print_summary" type="object"
                             string="Összesítő nyomtatása" class="btn-primary"/>
+                    <button name="action_query" type="object"
+                            string="Frissítés" class="btn-secondary"/>
                     <button string="Mégse" class="btn-secondary" special="cancel"/>
                 </footer>
             </form>
