@@ -1,4 +1,5 @@
 import re
+import datetime
 from odoo import api, fields, models, _
 from odoo.exceptions import ValidationError
 
@@ -27,6 +28,8 @@ class DentalWorkLog(models.Model):
     _description = 'Dental Work Log'
     _inherit = ['mail.thread', 'mail.activity.mixin']
     _order = 'date desc, id desc'
+    # No company_id / _check_company_auto: single-company deployment only.
+    # For multi-company, add company_id + check_company=True on partner_id + allowed_company_ids record rule.
 
     _sql_constraints = [
         ('dentari_lab_pieces_positive', 'CHECK(pieces >= 1)', 'Darabszám legalább 1 kell legyen.'),
@@ -37,14 +40,14 @@ class DentalWorkLog(models.Model):
         compute='_compute_name',
         store=True,
     )
-    date: object = fields.Date(
+    date: datetime.date = fields.Date(
         string='Dátum',
         required=True,
         default=fields.Date.context_today,
         tracking=True,
         index=True,
     )
-    partner_id: object = fields.Many2one(
+    partner_id: int = fields.Many2one(
         'res.partner',
         string='Megrendelő (Klinika)',
         required=True,
@@ -60,11 +63,11 @@ class DentalWorkLog(models.Model):
         string='Fogpozíció (FDI)',
         size=50,
     )
-    tooth_color: str = fields.Selection(
+    tooth_color: str | bool = fields.Selection(
         selection=VITA_COLORS,
         string='Fogszín (VITA)',
     )
-    work_type: str = fields.Selection(
+    work_type: str | bool = fields.Selection(
         selection=WORK_TYPES,
         string='Munka típusa',
         tracking=True,
@@ -75,6 +78,8 @@ class DentalWorkLog(models.Model):
         default=1,
         tracking=True,
     )
+    # Intentionally editable by technicians: they quote per-piece price at record creation.
+    # Manager-only pricing would require removing required=True and a separate pricing workflow.
     price_per_piece: float = fields.Float(
         string='Egységár (Ft/db)',
         required=True,
@@ -103,13 +108,13 @@ class DentalWorkLog(models.Model):
         compute='_compute_attachment_count',
         string='Mellékletek',
     )
-    user_id: object = fields.Many2one(
+    user_id: int = fields.Many2one(
         'res.users',
         string='Rögzítő',
         default=lambda self: self.env.user,
         index=True,
     )
-    invoice_id: object = fields.Many2one(
+    invoice_id: int = fields.Many2one(
         'account.move',
         string='Számla',
         readonly=True,
@@ -124,8 +129,18 @@ class DentalWorkLog(models.Model):
 
     @api.depends('attachment_ids')
     def _compute_attachment_count(self):
+        if not self.ids:
+            self.attachment_count = 0
+            return
+        self.env.cr.execute(
+            "SELECT log_id, COUNT(attachment_id)"
+            " FROM dental_work_log_attachment_rel"
+            " WHERE log_id = ANY(%s) GROUP BY log_id",
+            (self.ids,)
+        )
+        counts = dict(self.env.cr.fetchall())
         for rec in self:
-            rec.attachment_count = len(rec.attachment_ids)
+            rec.attachment_count = counts.get(rec.id, 0)
 
     @api.depends('invoice_id', 'invoice_id.state')
     def _compute_invoice_state(self):
@@ -180,7 +195,3 @@ class DentalWorkLog(models.Model):
             'domain': [('id', 'in', self.attachment_ids.ids)],
             'context': {'default_res_model': self._name, 'default_res_id': self.id},
         }
-
-    @api.model_create_multi
-    def create(self, vals_list):
-        return super().create(vals_list)

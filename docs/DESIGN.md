@@ -3,8 +3,8 @@
 **Project:** DentariOdoo  
 **Product:** Odoo 18 ERP for dental laboratory operations  
 **Authors:** Dentari Development Team  
-**Status:** Active — Milestone 4 done, M5 planned  
-**Last updated:** 2026-05-31
+**Status:** Active — Milestone 5a done, M5b deferred  
+**Last updated:** 2026-06-01
 
 ---
 
@@ -99,8 +99,9 @@ Odoo 18 Instance
     ├── [M2] dashboard      (aggregated KPIs)
     ├── [M2] import wizard  (Excel/CSV with Hungarian headers)
     ├── [M3] courier model  (delivery assignments)
-    ├── [M4] invoicing      (account.move bridge) ✓ done
-    └── [M5] monthly wizard (period-based draft invoice per partner)
+    ├── [M4] invoicing        (account.move bridge) ✓ done
+    ├── [M5a] monthly wizard  (period PDF summary per partner) ✓ done
+    └── [M5b] monthly wizard+ (draft account.move per partner) deferred
 ```
 
 Items in `[Mx]` brackets are planned in future milestones and not implemented yet.
@@ -238,7 +239,39 @@ class DentalWorkLog(models.Model):
     )
 ```
 
-#### 3.2.2 Constraints
+#### 3.2.2 dental.monthly.wizard (TransientModel)
+
+Period-based wizard that collects all `dental.work.log` records for a given month and produces a QWeb PDF summary per partner.
+
+| Field | Odoo type | Notes |
+|---|---|---|
+| `period_year` | `Integer` | Default: current year |
+| `period_month` | `Selection` (1–12) | Default: current month; Hungarian month names |
+| `period_label` | `Char` (computed) | e.g. `"2026. május"` |
+| `partner_ids` | `Many2many(res.partner)` | Optional filter; empty = all partners with logs |
+| `preview_ids` | `One2many(dental.monthly.wizard.line)` | Populated by `_onchange_period` and rebuilt by `action_print_summary` |
+
+Key design constraint: `preview_ids` is `readonly="1"` in the form view. Odoo does not include readonly fields in the `write()` payload sent on button click. `action_print_summary` therefore always re-queries `dental.work.log` directly from `period_year`/`period_month` and rebuilds `preview_ids` before rendering the report — it never trusts the DB state of `preview_ids`.
+
+#### 3.2.3 dental.monthly.wizard.line (TransientModel)
+
+One row per partner in the wizard preview.
+
+| Field | Odoo type | Notes |
+|---|---|---|
+| `wizard_id` | `Many2one(dental.monthly.wizard)` | Parent, cascade delete |
+| `partner_id` | `Many2one(res.partner)` | Clinic |
+| `log_count` | `Integer` | Count of work logs in the period for this partner |
+| `total_amount` | `Float` | `SUM(total_revenue)` |
+| `period_year` | `Integer` | Copied from wizard at line creation — see design note below |
+| `period_month` | `Char` | Copied from wizard at line creation — see design note below |
+| `log_ids` | `Many2many(dental.work.log)` | **Computed** — queries live from `period_year`, `period_month`, `partner_id`; never stored; used by the QWeb report template |
+
+`period_year` and `period_month` are **copied onto the line** (not read via `wizard_id.*`) so that `_compute_log_ids` and `action_open_logs` work correctly without reading from the wizard DB record (which holds the stale original period until the user clicks a button). See decisions log §5 entries 11–15.
+
+`action_open_logs` is the UI mechanism for displaying per-partner work logs. It opens a filtered `dental.work.log` list action (`target='new'`). The row-click popup on `preview_ids` is not used for log display — see §5 decision 15.
+
+#### 3.2.4 Constraints
 
 ```python
 _sql_constraints = [
@@ -252,7 +285,7 @@ Python-level validation (via `@api.constrains`):
 - `price_per_piece` ≤ 500,000
 - `tooth_position` format: digits, commas, dots, hyphens only
 
-#### 3.2.3 Indexes
+#### 3.2.5 Indexes
 
 PostgreSQL indexes created by Odoo ORM for `index=True` fields, plus the implicit PK index. Additional composite index to consider in Milestone 2 if query profiling reveals slow monthly summary queries:
 
@@ -364,7 +397,8 @@ Sum decorations on `pieces` and `total_revenue` for daily/filtered totals.
 ```
 Dentari Lab (top-level menu)
 ├── Munkalapok              → list+form action, no default filter
-└── Mai munkák              → list+form action, filter: date=today
+├── Mai munkák              → list+form action, filter: date=today
+└── Havi Összesítő          → opens dental.monthly.wizard dialog (Manager only)
 ```
 
 ### 3.5 Business Logic
@@ -409,6 +443,61 @@ def _check_price(self):
             raise ValidationError('Egységár 0 és 500 000 Ft között kell legyen.')
 ```
 
+#### action_print_summary (dental.monthly.wizard)
+
+Always re-queries `dental.work.log` from the period fields, rebuilds `preview_ids` in the same transaction, then passes `self` to the QWeb report action. The check for "no logs" is done via `_search_logs()`, not via `self.preview_ids`, because `preview_ids` may be stale (readonly in view → not sent back by client on button click).
+
+```python
+def action_print_summary(self):
+    self.ensure_one()
+    partner_ids = self.partner_ids.ids if self.partner_ids else []
+    logs = self._search_logs(self.period_year, int(self.period_month), partner_ids)
+    if not logs:
+        raise UserError(_('Nincs munkalap a kiválasztott időszakban.'))
+    self.write({'preview_ids': [(5, 0, 0)] + self._build_preview_vals(logs)})
+    return self.env.ref('dentari_lab.action_report_monthly_summary').report_action(self)
+```
+
+#### _compute_log_ids (dental.monthly.wizard.line)
+
+Computed Many2many — queries `dental.work.log` live from the line's own `period_year`, `period_month`, and `partner_id` fields. Never stored. Used exclusively by the QWeb report template (`line.log_ids.sorted(...)`). Not used for the UI detail view (see `action_open_logs`).
+
+```python
+@api.depends('period_year', 'period_month', 'partner_id')
+def _compute_log_ids(self):
+    for line in self:
+        if not line.period_month or not line.partner_id:
+            line.log_ids = self.env['dental.work.log']
+            continue
+        date_from = date(line.period_year, int(line.period_month), 1)
+        date_to = date_from + relativedelta(months=1) - timedelta(days=1)
+        line.log_ids = self.env['dental.work.log'].search([
+            ('date', '>=', date_from),
+            ('date', '<=', date_to),
+            ('partner_id', '=', line.partner_id.id),
+        ], order='date, id')
+```
+
+#### action_open_logs (dental.monthly.wizard.line)
+
+Opens a filtered `dental.work.log` list view (`target='new'`) for the line's partner and period. This is the UI mechanism for per-partner detail — it bypasses the OWL readonly One2many popup which reuses the list-load cache and never contains `log_ids` data. Called via a "Részletek" button in the `preview_ids` list.
+
+```python
+def action_open_logs(self):
+    self.ensure_one()
+    date_from = date(self.period_year, int(self.period_month), 1)
+    date_to = date_from + relativedelta(months=1) - timedelta(days=1)
+    return {
+        'type': 'ir.actions.act_window',
+        'name': f'{self.partner_id.name} — {period_label}',
+        'res_model': 'dental.work.log',
+        'view_mode': 'list,form',
+        'domain': [('partner_id', '=', self.partner_id.id),
+                   ('date', '>=', date_from), ('date', '<=', date_to)],
+        'target': 'new',
+    }
+```
+
 ### 3.6 Selection Field Constants
 
 Both lists are defined as module-level tuples in `dental_work_log.py` and referenced via `selection=` parameter.
@@ -450,7 +539,7 @@ WORK_TYPES = [
 | **M2 — Statistics & Import** | Dashboard KPIs (today/week/month), Excel/CSV import wizard with Hungarian column mapping | Planned |
 | **M3 — Courier Module** | Delivery assignment model, route tracking, courier-facing view | Planned |
 | **M4 — Invoicing Bridge** | `dental.invoice.wizard` — manual multi-select → draft `account.move` per partner | Done |
-| **M5a — Monthly Statement (PDF)** | `dental.monthly.wizard` — period-based auto-collect → QWeb PDF summary per partner; lab manager emails PDF, partner confirms offline, invoice in 3rd party system | Planned |
+| **M5a — Monthly Statement (PDF)** | `dental.monthly.wizard` — period-based auto-collect → QWeb PDF summary per partner; lab manager emails PDF, partner confirms offline, invoice in 3rd party system | Done |
 | **M5b — Monthly Statement (Invoice)** | Extend M5a wizard with "Számlák létrehozása" button → draft `account.move` per partner; replaces 3rd party invoicing; triggers NAV reporting on post — **no deadline, activates when Odoo invoicing goes live** | Deferred |
 | **M6 — CRM / Lead Pipeline** | Replace lab_manager's Excel partner prospecting; `crm` module — no deadline set | Deferred |
 
@@ -470,6 +559,11 @@ WORK_TYPES = [
 | 8 | Custom approval model (`dental.monthly.statement`) vs draft invoice? | Draft `account.move` — Phase 2 only | 2026-05-31 | Draft→posted lifecycle already implements the approval state machine; custom model would duplicate this without adding value; not created in Phase 1 while 3rd party invoicing is active |
 | 9 | Partner portal for approval? | Out of scope for M5 | 2026-05-31 | Partners confirm by email/phone; lab_manager manually posts the invoice; portal can be added in a future milestone without model changes |
 | 10 | Create draft `account.move` in Phase 1 (before invoicing go-live)? | No — QWeb PDF only | 2026-05-31 | While a 3rd party system issues the real invoice, Odoo draft invoices would be misleading and risk backdated NAV reporting when eventually posted |
+| 11 | `log_ids` on `dental.monthly.wizard.line`: stored Many2many or computed? | Computed | 2026-06-01 | A stored Many2many is only written when `action_print_summary` calls `write()`. The computed field queries `dental.work.log` live and is used by the QWeb report template. UI detail display is handled by `action_open_logs` (see decision 15), not by the popup. |
+| 12 | Should `action_print_summary` rely on `self.preview_ids` for the "no data" check? | No — always re-query via `_search_logs()` | 2026-06-01 | `preview_ids` is `readonly="1"` in the form; Odoo excludes readonly fields from the `write()` payload on button click. If the user changed the period (onchange updated the client view) and then clicked print, the server-side `preview_ids` was still the initial (possibly empty) state from `create()`. Direct re-query from the non-readonly period fields is the only reliable check. |
+| 13 | Should `_compute_log_ids` read the period from `wizard_id.*` or from line-local fields? | Line-local `period_year`/`period_month` fields | 2026-06-01 | Reading `wizard_id.period_year` queries the DB wizard record, which holds the original period until the user clicks a button. For virtual onchange lines (before any button click), this gives the wrong (stale) period → empty `log_ids`. Copying the period into each line during `_build_preview_vals` makes the compute self-contained and correct for both virtual and persisted line records. |
+| 14 | Should `_onchange_period` return virtual (negative-ID) records or real DB records? | Real DB records via `self._origin.write()` | 2026-06-01 | Odoo's One2many popup looks up records server-side by ID. Virtual records (negative IDs) don't exist in the DB — the lookup fails silently. Writing via `self._origin.sudo().write(...)` creates real DB records immediately; the onchange returns real IDs so row-level `type="object"` buttons (e.g. `action_open_logs`) can be called reliably. |
+| 15 | How to display per-partner work log detail — row-click popup or explicit button? | Explicit `action_open_logs` button (confirmed by XML-RPC diagnosis) | 2026-06-01 | Live XML-RPC diagnosis proved: backend `web_read` returns correct `log_ids` data; the bug was in the OWL client. Odoo 18 readonly One2many popups reuse the list-load cache (only visible columns: `partner_id`, `log_count`, `total_amount`) and never issue a fresh `web_read`. `log_ids` is never in that cache → popup always empty. The row-click popup cannot be fixed from the module layer. A "Részletek" button calling `action_open_logs` (an `ir.actions.act_window` filtered by partner + period) bypasses OWL caching entirely and reliably shows the correct work logs. |
 
 ---
 

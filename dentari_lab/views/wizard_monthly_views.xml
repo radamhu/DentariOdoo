@@ -1,5 +1,34 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
+    <record id="view_dental_monthly_wizard_line_form" model="ir.ui.view">
+        <field name="name">dental.monthly.wizard.line.form</field>
+        <field name="model">dental.monthly.wizard.line</field>
+        <field name="arch" type="xml">
+            <form string="Munkalapok – részletek">
+                <field name="period_year" invisible="1"/>
+                <field name="period_month" invisible="1"/>
+                <group>
+                    <field name="partner_id" readonly="1"/>
+                    <field name="log_count" string="Munkalapok száma" readonly="1"/>
+                    <field name="total_amount" string="Összeg (Ft)" readonly="1"/>
+                </group>
+                <field name="log_ids" readonly="1" nolabel="1">
+                    <list>
+                        <field name="date" string="Dátum"/>
+                        <field name="patient_name" string="Páciens"/>
+                        <field name="work_type" string="Munka típusa"/>
+                        <field name="pieces" string="db"/>
+                        <field name="price_per_piece" string="Egységár (Ft)"/>
+                        <field name="total_revenue" string="Összeg (Ft)"/>
+                    </list>
+                </field>
+                <footer>
+                    <button string="Bezár" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
     <record id="view_dental_monthly_wizard_form" model="ir.ui.view">
         <field name="name">dental.monthly.wizard.form</field>
         <field name="model">dental.monthly.wizard</field>
@@ -20,12 +49,17 @@
                             <field name="partner_id"/>
                             <field name="log_count" string="Munkalapok"/>
                             <field name="total_amount" string="Összeg (Ft)"/>
+                            <button name="action_open_logs" type="object"
+                                    icon="fa-list" title="Munkalapok megtekintése"
+                                    string="Részletek"/>
                         </list>
                     </field>
                 </group>
                 <footer>
                     <button name="action_print_summary" type="object"
                             string="Összesítő nyomtatása" class="btn-primary"/>
+                    <button name="action_query" type="object"
+                            string="Frissítés" class="btn-secondary"/>
                     <button string="Mégse" class="btn-secondary" special="cancel"/>
                 </footer>
             </form>
@@ -37,5 +71,6 @@
         <field name="res_model">dental.monthly.wizard</field>
         <field name="view_mode">form</field>
         <field name="target">new</field>
+        <field name="groups_id" eval="[(4, ref('dentari_lab.group_lab_manager'))]"/>
     </record>
 </odoo>

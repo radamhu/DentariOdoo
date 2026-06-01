@@ -1,5 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
+    <!-- group_lab_manager implies group_lab_technician (see groups.xml).
+         Odoo combines rules across groups with OR, so a manager matches both
+         rules: [user_id=user] OR [(1=1)] → all records. The manager bypass rule
+         below MUST NOT be removed without also removing the implication. -->
     <record id="rule_work_log_own_records" model="ir.rule">
         <field name="name">Work Log: technician sees own records</field>
         <field name="model_id" ref="model_dental_work_log"/>

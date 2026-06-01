@@ -57,17 +57,25 @@ class DentalMonthlyWizard(models.TransientModel):
             year = res.get('period_year', today.year)
             month = int(res.get('period_month', str(today.month)))
             logs = self._search_logs(year, month, [])
-            res['preview_ids'] = self._build_preview_vals(logs)
+            res['preview_ids'] = self._build_preview_vals(logs, year, str(month))
         return res
 
-    @api.onchange('period_year', 'period_month', 'partner_ids')
-    def _onchange_period(self):
-        self.preview_ids = [(5, 0, 0)]
-        if not self.period_month:
-            return
+    def action_query(self):
+        self.ensure_one()
         partner_ids = self.partner_ids.ids if self.partner_ids else []
         logs = self._search_logs(self.period_year, int(self.period_month), partner_ids)
-        self.preview_ids = self._build_preview_vals(logs)
+        self.write({
+            'preview_ids': [(5, 0, 0)] + self._build_preview_vals(
+                logs, self.period_year, self.period_month
+            ),
+        })
+        return {
+            'type': 'ir.actions.act_window',
+            'res_model': 'dental.monthly.wizard',
+            'res_id': self.id,
+            'view_mode': 'form',
+            'target': 'new',
+        }
 
     @api.model
     def _search_logs(self, year, month, partner_ids):
@@ -79,7 +87,7 @@ class DentalMonthlyWizard(models.TransientModel):
         return self.env['dental.work.log'].search(domain, order='partner_id, date, id')
 
     @api.model
-    def _build_preview_vals(self, logs):
+    def _build_preview_vals(self, logs, year, month):
         summary = {}
         for log in logs:
             pid = log.partner_id.id
@@ -88,22 +96,24 @@ class DentalMonthlyWizard(models.TransientModel):
                     'partner_id': pid,
                     'log_count': 0,
                     'total_amount': 0.0,
-                    'log_ids': [],
+                    'period_year': year,
+                    'period_month': str(month),
                 }
             summary[pid]['log_count'] += 1
             summary[pid]['total_amount'] += log.total_revenue
-            summary[pid]['log_ids'].append(log.id)
-        result = []
-        for vals in summary.values():
-            log_ids = vals.pop('log_ids')
-            vals['log_ids'] = [(6, 0, log_ids)]
-            result.append((0, 0, vals))
-        return result
+        return [(0, 0, vals) for vals in summary.values()]
 
     def action_print_summary(self):
         self.ensure_one()
-        if not self.preview_ids:
+        partner_ids = self.partner_ids.ids if self.partner_ids else []
+        logs = self._search_logs(self.period_year, int(self.period_month), partner_ids)
+        if not logs:
             raise UserError(_('Nincs munkalap a kiválasztott időszakban.'))
+        self.write({
+            'preview_ids': [(5, 0, 0)] + self._build_preview_vals(
+                logs, self.period_year, self.period_month
+            ),
+        })
         return self.env.ref('dentari_lab.action_report_monthly_summary').report_action(self)
 
 
@@ -117,13 +127,63 @@ class DentalMonthlyWizardLine(models.TransientModel):
         ondelete='cascade',
     )
     partner_id = fields.Many2one('res.partner', string='Megrendelő', readonly=True)
-    log_count = fields.Integer(string='Munkalapok', readonly=True)
+    log_count = fields.Integer(string='Munkalapok száma', readonly=True)
     total_amount = fields.Float(string='Összeg (Ft)', digits=(10, 0), readonly=True)
+    period_year = fields.Integer()
+    period_month = fields.Char()
     log_ids = fields.Many2many(
         'dental.work.log',
-        'dental_monthly_wizard_line_log_rel',
-        'line_id',
-        'log_id',
-        string='Munkalapok',
-        readonly=True,
+        string='Munkalap lista',
+        compute='_compute_log_ids',
     )
+
+    @api.depends('period_year', 'period_month', 'partner_id')
+    def _compute_log_ids(self):
+        empty = self.env['dental.work.log']
+        lines_with_data = self.filtered(lambda l: l.period_month and l.partner_id)
+        if not lines_with_data:
+            self.log_ids = empty
+            return
+
+        # All lines share one wizard period — one search covers the entire batch.
+        year = lines_with_data[0].period_year
+        month = int(lines_with_data[0].period_month)
+        date_from = date(year, month, 1)
+        date_to = date_from + relativedelta(months=1) - timedelta(days=1)
+        partner_ids = lines_with_data.mapped('partner_id').ids
+        all_logs = self.env['dental.work.log'].search([
+            ('date', '>=', date_from),
+            ('date', '<=', date_to),
+            ('partner_id', 'in', partner_ids),
+        ], order='date, id')
+
+        logs_by_partner = {}
+        for log in all_logs:
+            pid = log.partner_id.id
+            logs_by_partner.setdefault(pid, empty)
+            logs_by_partner[pid] |= log
+
+        for line in lines_with_data:
+            line.log_ids = logs_by_partner.get(line.partner_id.id, empty)
+        (self - lines_with_data).log_ids = empty
+
+    def action_open_logs(self):
+        self.ensure_one()
+        date_from = date(self.period_year, int(self.period_month), 1)
+        date_to = date_from + relativedelta(months=1) - timedelta(days=1)
+        month_names = dict(MONTHS)
+        period_label = (
+            f"{self.period_year}. {month_names.get(self.period_month, self.period_month).lower()}"
+        )
+        return {
+            'type': 'ir.actions.act_window',
+            'name': f'{self.partner_id.name} — {period_label}',
+            'res_model': 'dental.work.log',
+            'view_mode': 'list,form',
+            'domain': [
+                ('partner_id', '=', self.partner_id.id),
+                ('date', '>=', date_from),
+                ('date', '<=', date_to),
+            ],
+            'target': 'new',
+        }
