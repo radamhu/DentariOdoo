@@ -155,15 +155,21 @@ class DentalMonthlyWizard(models.TransientModel):
         if not default_partners:
             raise UserError(_('Nincs email-cím: sem a megrendelőknek, sem a bejelentkezett felhasználónak.'))
 
-        template = self.env.ref('dentari_lab.email_template_monthly_summary')
-        subject = template._render_field('subject', [self.id])[self.id]
-        body = template._render_field('body_html', [self.id])[self.id]
+        period_label = self.period_label
+        user_name = self.env.user.name
+        subject = f'Havi elszámolás – {period_label}'
+        body = (
+            f'<p>Tisztelt {{partner_name}}!</p>'
+            f'<p>Mellékletben küldjük a {period_label} havi elszámolást.</p>'
+            f'<p>Üdvözlettel,<br/>{user_name}</p>'
+        )
 
         email_wizard = self.env['dental.monthly.email.wizard'].create({
             'monthly_wizard_id': self.id,
             'subject': subject,
             'body': body,
             'partner_ids': [(6, 0, default_partners.ids)],
+            'ops_partner_id': current_user_partner.id,
         })
         return {
             'type': 'ir.actions.act_window',
