@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="email_template_monthly_summary" model="mail.template">
+        <field name="name">Havi Összesítő – Email sablon</field>
+        <field name="model_id" ref="dentari_lab.model_dental_monthly_wizard"/>
+        <field name="subject">Havi elszámolás – {{ object.period_label }}</field>
+        <field name="body_html"><![CDATA[<p>Tisztelt {partner_name}!</p>
+<p>Mellékletben küldjük a {{ object.period_label }} havi elszámolást.</p>
+<p>Üdvözlettel,<br/>{{ user.name }}</p>]]></field>
+    </record>
+</odoo>
