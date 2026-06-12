@@ -146,8 +146,14 @@ class DentalMonthlyWizard(models.TransientModel):
         partners_with_email = self.preview_ids.mapped('partner_id').filtered(
             lambda p: p.email
         )
-        if not partners_with_email:
-            raise UserError(_('Egy megrendelőnek sincs megadva email cím.'))
+
+        current_user_partner = self.env.user.partner_id
+        default_partners = partners_with_email
+        if current_user_partner not in default_partners and current_user_partner.email:
+            default_partners = default_partners | current_user_partner
+
+        if not default_partners:
+            raise UserError(_('Nincs email-cím: sem a megrendelőknek, sem a bejelentkezett felhasználónak.'))
 
         template = self.env.ref('dentari_lab.email_template_monthly_summary')
         subject = template._render_field('subject', [self.id])[self.id]
@@ -157,7 +163,7 @@ class DentalMonthlyWizard(models.TransientModel):
             'monthly_wizard_id': self.id,
             'subject': subject,
             'body': body,
-            'partner_ids': [(6, 0, partners_with_email.ids)],
+            'partner_ids': [(6, 0, default_partners.ids)],
         })
         return {
             'type': 'ir.actions.act_window',

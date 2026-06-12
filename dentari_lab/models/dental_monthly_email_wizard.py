@@ -3,6 +3,7 @@ import re
 import unicodedata
 
 from odoo import fields, models, _
+from odoo.exceptions import UserError
 
 
 class DentalMonthlyEmailWizard(models.TransientModel):
@@ -23,49 +24,75 @@ class DentalMonthlyEmailWizard(models.TransientModel):
 
     def action_send(self):
         self.ensure_one()
+
+        if not self.partner_ids:
+            raise UserError(_('Nincs kiválasztott címzett. Kérem válasszon legalább egy partnert.'))
+
         wizard = self.monthly_wizard_id
         report = self.env.ref('dentari_lab.action_report_monthly_summary')
         skipped = []
 
         for partner in self.partner_ids:
-            line = wizard.preview_ids.filtered(lambda l: l.partner_id == partner)
-            if not line:
-                skipped.append(partner.name or '?')
-                continue
-            line = line[0]
-
             if not partner.email:
                 skipped.append(partner.name or '?')
                 continue
 
-            pdf_content, _mime = report._render_qweb_pdf(report.id, [line.id])
+            lines = wizard.preview_ids.filtered(lambda l: l.partner_id == partner)
 
-            nfkd = unicodedata.normalize('NFKD', partner.name or 'partner')
-            safe_name = re.sub(
-                r'[^A-Za-z0-9_\-]', '_',
-                nfkd.encode('ASCII', 'ignore').decode('ASCII'),
-            )
-            filename = (
-                f'Havi_Osszesito_{wizard.period_year}'
-                f'_{wizard.period_month}_{safe_name}.pdf'
-            )
-
-            attachment = self.env['ir.attachment'].create({
-                'name': filename,
-                'type': 'binary',
-                'datas': base64.b64encode(pdf_content),
-                'res_model': self._name,
-                'res_id': self.id,
-            })
-
-            body = self.body.replace('{partner_name}', partner.name or 'Megrendelő')
+            if lines:
+                # Partner has their own preview line — send their specific PDF.
+                attachment_ids = []
+                for line in lines:
+                    pdf_content, _mime = report._render_qweb_pdf(report.id, [line.id])
+                    nfkd = unicodedata.normalize('NFKD', partner.name or 'partner')
+                    safe_name = re.sub(
+                        r'[^A-Za-z0-9_\-]', '_',
+                        nfkd.encode('ASCII', 'ignore').decode('ASCII'),
+                    )
+                    filename = (
+                        f'Havi_Osszesito_{wizard.period_year}'
+                        f'_{wizard.period_month}_{safe_name}.pdf'
+                    )
+                    att = self.env['ir.attachment'].create({
+                        'name': filename,
+                        'type': 'binary',
+                        'datas': base64.b64encode(pdf_content),
+                        'res_model': self._name,
+                        'res_id': self.id,
+                    })
+                    attachment_ids.append((4, att.id))
+                body = self.body.replace('{partner_name}', partner.name or 'Megrendelő')
+            else:
+                # No preview line for this partner (e.g. logged-in ops user) —
+                # send all partners' PDFs so they get the full overview.
+                attachment_ids = []
+                for line in wizard.preview_ids:
+                    pdf_content, _mime = report._render_qweb_pdf(report.id, [line.id])
+                    nfkd = unicodedata.normalize('NFKD', line.partner_id.name or 'partner')
+                    safe_name = re.sub(
+                        r'[^A-Za-z0-9_\-]', '_',
+                        nfkd.encode('ASCII', 'ignore').decode('ASCII'),
+                    )
+                    filename = (
+                        f'Havi_Osszesito_{wizard.period_year}'
+                        f'_{wizard.period_month}_{safe_name}.pdf'
+                    )
+                    att = self.env['ir.attachment'].create({
+                        'name': filename,
+                        'type': 'binary',
+                        'datas': base64.b64encode(pdf_content),
+                        'res_model': self._name,
+                        'res_id': self.id,
+                    })
+                    attachment_ids.append((4, att.id))
+                body = self.body.replace('{partner_name}', partner.name or 'Összesítő')
 
             self.env['mail.mail'].create({
                 'subject': self.subject,
                 'body_html': body,
                 'email_to': partner.email,
-                'email_cc': self.env.user.email or '',
-                'attachment_ids': [(4, attachment.id)],
+                'attachment_ids': attachment_ids,
+                'auto_delete': False,
             }).send()
 
         if skipped:
