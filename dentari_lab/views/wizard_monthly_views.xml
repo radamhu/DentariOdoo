@@ -58,8 +58,34 @@
                 <footer>
                     <button name="action_print_summary" type="object"
                             string="Összesítő nyomtatása" class="btn-primary"/>
+                    <button name="action_open_email_wizard" type="object"
+                            string="Email küldése" class="btn-secondary"/>
                     <button name="action_query" type="object"
                             string="Frissítés" class="btn-secondary"/>
+                    <button string="Mégse" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_dental_monthly_email_wizard_form" model="ir.ui.view">
+        <field name="name">dental.monthly.email.wizard.form</field>
+        <field name="model">dental.monthly.email.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Email küldése">
+                <group>
+                    <field name="subject" string="Tárgy"/>
+                    <field name="body" widget="html" string="Levél szövege" nolabel="1"/>
+                    <field name="partner_ids" widget="many2many_tags"
+                           string="Címzett partnerek"
+                           options="{'no_create': True}"/>
+                </group>
+                <div class="text-muted small ms-2">
+                    A bejelentkezett felhasználó minden emailhez másolatot kap.
+                </div>
+                <footer>
+                    <button name="action_send" type="object"
+                            string="Küldés" class="btn-primary"/>
                     <button string="Mégse" class="btn-secondary" special="cancel"/>
                 </footer>
             </form>
