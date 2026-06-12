@@ -42,7 +42,7 @@ class DentalMonthlyEmailWizard(models.TransientModel):
                 skipped.append(partner.name or '?')
                 continue
 
-            pdf_content, _ = report._render_qweb_pdf(report.id, [line.id])
+            pdf_content, _mime = report._render_qweb_pdf(report.id, [line.id])
 
             nfkd = unicodedata.normalize('NFKD', partner.name or 'partner')
             safe_name = re.sub(
