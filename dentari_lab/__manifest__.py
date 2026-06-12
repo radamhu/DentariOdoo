@@ -9,6 +9,7 @@
         'security/ir.model.access.csv',
         'security/record_rules.xml',
         'data/invoice_data.xml',
+        'data/email_templates.xml',
         'report/report_monthly_summary.xml',
         'views/dental_work_log_views.xml',
         'views/wizard_invoice_views.xml',
