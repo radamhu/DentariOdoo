@@ -141,6 +141,32 @@ class DentalMonthlyWizard(models.TransientModel):
             'target': 'new',
         }
 
+    def action_open_email_wizard(self):
+        self.ensure_one()
+        partners_with_email = self.preview_ids.mapped('partner_id').filtered(
+            lambda p: p.email
+        )
+        if not partners_with_email:
+            raise UserError(_('Egy megrendelőnek sincs megadva email cím.'))
+
+        template = self.env.ref('dentari_lab.email_template_monthly_summary')
+        subject = template._render_field('subject', [self.id])[self.id]
+        body = template._render_field('body_html', [self.id])[self.id]
+
+        email_wizard = self.env['dental.monthly.email.wizard'].create({
+            'monthly_wizard_id': self.id,
+            'subject': subject,
+            'body': body,
+            'partner_ids': [(6, 0, partners_with_email.ids)],
+        })
+        return {
+            'type': 'ir.actions.act_window',
+            'res_model': 'dental.monthly.email.wizard',
+            'res_id': email_wizard.id,
+            'view_mode': 'form',
+            'target': 'new',
+        }
+
 
 class DentalMonthlyWizardLine(models.TransientModel):
     _name = 'dental.monthly.wizard.line'
