@@ -3,7 +3,6 @@ import re
 import unicodedata
 
 from odoo import fields, models, _
-from odoo.exceptions import UserError
 
 
 class DentalMonthlyEmailWizard(models.TransientModel):
@@ -24,9 +23,6 @@ class DentalMonthlyEmailWizard(models.TransientModel):
 
     def action_send(self):
         self.ensure_one()
-        if not self.partner_ids:
-            raise UserError(_('Nincs kijelölt címzett.'))
-
         wizard = self.monthly_wizard_id
         report = self.env.ref('dentari_lab.action_report_monthly_summary')
         skipped = []
