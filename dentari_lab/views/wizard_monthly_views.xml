@@ -81,7 +81,7 @@
                            options="{'no_create': True}"/>
                 </group>
                 <div class="text-muted small ms-2">
-                    A bejelentkezett felhasználó minden emailhez másolatot kap.
+                    A bejelentkezett felhasználó alapértelmezetten szerepel a címzett listában, és az összes összesítőt megkapja.
                 </div>
                 <footer>
                     <button name="action_send" type="object"
