@@ -41,7 +41,7 @@ class DentalMonthlyEmailWizard(models.TransientModel):
                 skipped.append(partner.name or '?')
                 continue
 
-            is_ops = bool(self.ops_partner_id and partner == self.ops_partner_id)
+            is_ops = (partner == self.env.user.partner_id)
             lines = wizard.preview_ids.filtered(lambda l: l.partner_id == partner)
 
             if not is_ops and lines:
