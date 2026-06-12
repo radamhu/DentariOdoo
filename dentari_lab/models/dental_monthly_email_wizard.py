@@ -73,9 +73,17 @@ class DentalMonthlyEmailWizard(models.TransientModel):
             }).send()
 
         if skipped:
-            raise UserError(
-                _('A következő partnereknek nem sikerült elküldeni: %s')
-                % ', '.join(skipped)
-            )
+            return {
+                'type': 'ir.actions.client',
+                'tag': 'display_notification',
+                'params': {
+                    'title': _('Figyelem'),
+                    'message': _('A következő partnereknek nem sikerült elküldeni: %s')
+                               % ', '.join(skipped),
+                    'type': 'warning',
+                    'sticky': True,
+                    'next': {'type': 'ir.actions.act_window_close'},
+                },
+            }
 
         return {'type': 'ir.actions.act_window_close'}
