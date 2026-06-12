@@ -38,6 +38,10 @@ class DentalMonthlyEmailWizard(models.TransientModel):
                 continue
             line = line[0]
 
+            if not partner.email:
+                skipped.append(partner.name or '?')
+                continue
+
             pdf_content, _ = report._render_qweb_pdf(report.id, [line.id])
 
             nfkd = unicodedata.normalize('NFKD', partner.name or 'partner')
@@ -60,22 +64,13 @@ class DentalMonthlyEmailWizard(models.TransientModel):
 
             body = self.body.replace('{partner_name}', partner.name or 'Megrendelő')
 
-            mail_vals = {
+            self.env['mail.mail'].create({
                 'subject': self.subject,
                 'body_html': body,
+                'email_to': partner.email,
+                'email_cc': self.env.user.email or '',
                 'attachment_ids': [(4, attachment.id)],
-            }
-            if partner.email:
-                mail_vals['email_to'] = partner.email
-            user_email = self.env.user.email
-            if user_email:
-                mail_vals['email_cc'] = user_email
-
-            if not mail_vals.get('email_to'):
-                skipped.append(partner.name or '?')
-                continue
-
-            self.env['mail.mail'].create(mail_vals).send()
+            }).send()
 
         if skipped:
             raise UserError(
