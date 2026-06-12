@@ -21,6 +21,10 @@ class DentalMonthlyEmailWizard(models.TransientModel):
         'res.partner',
         string='Címzettek',
     )
+    ops_partner_id = fields.Many2one(
+        'res.partner',
+        string='Operátor partner',
+    )
 
     def action_send(self):
         self.ensure_one()
@@ -37,10 +41,11 @@ class DentalMonthlyEmailWizard(models.TransientModel):
                 skipped.append(partner.name or '?')
                 continue
 
+            is_ops = bool(self.ops_partner_id and partner == self.ops_partner_id)
             lines = wizard.preview_ids.filtered(lambda l: l.partner_id == partner)
 
-            if lines:
-                # Partner has their own preview line — send their specific PDF.
+            if not is_ops and lines:
+                # Client partner with their own preview line — send their specific PDF.
                 attachment_ids = []
                 for line in lines:
                     pdf_content, _mime = report._render_qweb_pdf(report.id, [line.id])
@@ -63,8 +68,7 @@ class DentalMonthlyEmailWizard(models.TransientModel):
                     attachment_ids.append((4, att.id))
                 body = self.body.replace('{partner_name}', partner.name or 'Megrendelő')
             else:
-                # No preview line for this partner (e.g. logged-in ops user) —
-                # send all partners' PDFs so they get the full overview.
+                # Ops/admin partner — always send all partners' PDFs for the full overview.
                 attachment_ids = []
                 for line in wizard.preview_ids:
                     pdf_content, _mime = report._render_qweb_pdf(report.id, [line.id])
