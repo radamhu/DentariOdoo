@@ -85,7 +85,7 @@ class DentalWorkLog(models.Model):
     price_per_piece: float = fields.Float(
         string='Egységár (Ft/db)',
         required=True,
-        default=5000,
+        default=3000,
         tracking=True,
         digits=(10, 0),
     )
