@@ -19,6 +19,8 @@ WORK_TYPES = [
     ('ideiglenes', 'Ideiglenes'),
     ('javitas', 'Javítás'),
     ('monolitikus', 'Monolitikus'),
+    ('grandio', 'Grandio'),
+    ('muiny', 'Műíny'),
     ('egyeb', 'Egyéb'),
 ]
 

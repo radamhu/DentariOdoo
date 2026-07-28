@@ -1,6 +1,6 @@
 {
     'name': 'Dentari Lab',
-    'version': '18.0.1.1.0',
+    'version': '18.0.1.2.0',
     'category': 'Dental / Laboratory',
     'summary': 'Dental laboratory work log tracking',
     'depends': ['base', 'mail', 'account'],
