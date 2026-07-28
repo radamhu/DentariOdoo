@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git -C /Users/ferko/development/DentariOdoo log --oneline -5)",
+      "Bash(git -C /Users/ferko/development/DentariOdoo add dentari_lab/models/dental_monthly_email_wizard.py dentari_lab/models/dental_monthly_wizard.py dentari_lab/views/wizard_monthly_views.xml)",
+      "Bash(git -C /Users/ferko/development/DentariOdoo commit -m ' *)",
+      "Bash(git -C /Users/ferko/development/DentariOdoo push origin develop)",
+      "Bash(git -C /Users/ferko/development/DentariOdoo add dentari_lab/models/dental_monthly_email_wizard.py dentari_lab/models/dental_monthly_wizard.py)",
+      "Bash(git -C /Users/ferko/development/DentariOdoo checkout main)",
+      "Bash(git -C /Users/ferko/development/DentariOdoo merge develop)",
+      "Bash(git -C /Users/ferko/development/DentariOdoo checkout develop)"
+    ]
+  }
+}

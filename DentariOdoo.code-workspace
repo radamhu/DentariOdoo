@@ -1,0 +1,12 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"window.title": "${activeEditorShort}${separator}${rootName}${separator}${profileName}${separator}[Branch: main]",
+		"xml.symbols.enabled": false,
+		"python.languageServer": "None"
+	}
+}

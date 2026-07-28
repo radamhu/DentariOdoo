@@ -1,0 +1,146 @@
+- generic [ref=f3e1]:
+  - banner [ref=f3e2]:
+    - navigation [ref=f3e3]:
+      - button "" [ref=f3e5] [cursor=pointer]
+      - menuitem "Dentari Lab" [ref=f3e21] [cursor=pointer]
+      - menu [ref=f3e22]:
+        - menuitem "Munkalapok" [ref=f3e23] [cursor=pointer]
+        - menuitem "Mai munkák" [ref=f3e24] [cursor=pointer]
+        - menuitem "Havi Összesítő" [ref=f3e25] [cursor=pointer]
+        - button "Statisztikák" [ref=f3e26] [cursor=pointer]
+      - menu [ref=f3e7]:
+        - button "Messages 2" [ref=f3e28] [cursor=pointer]:
+          - img "Messages" [ref=f3e10]: 
+          - generic [ref=f3e11]: "2"
+        - button [ref=f3e12] [cursor=pointer]:
+          - img "Activities" [ref=f3e13]: 
+        - button "ADAM Eszter Anna E.V." [disabled] [ref=f3e15]: 
+        - button [ref=f3e18] [cursor=pointer]:
+          - img "User" [ref=f3e19]
+          - text: 
+  - generic [ref=f3e472]:
+    - generic [ref=f3e474]:
+      - generic [ref=f3e475]:
+        - button "New" [ref=f3e478] [cursor=pointer]
+        - generic [ref=f3e479]:
+          - list [ref=f3e480]:
+            - listitem [ref=f3e481]:
+              - link "Munkalapok" [ref=f3e482] [cursor=pointer]:
+                - /url: /odoo/action-141
+          - generic [ref=f3e483]:
+            - generic [ref=f3e484]: 2026-07-28 / N/A
+            - button "" [ref=f3e489] [cursor=pointer]
+        - generic [ref=f3e492]:
+          - button "Save manually" [ref=f3e493] [cursor=pointer]:
+            - generic [ref=f3e494]: 
+          - button "Discard all changes" [ref=f3e495] [cursor=pointer]:
+            - generic [ref=f3e496]: 
+      - button " 0 Melléklet" [ref=f3e499] [cursor=pointer]:
+        - generic [ref=f3e500]: 
+        - generic [ref=f3e501]:
+          - generic [ref=f3e502]: "0"
+          - generic [ref=f3e503]: Melléklet
+    - generic [ref=f3e505]:
+      - generic [ref=f3e507]:
+        - generic [ref=f3e509]:
+          - generic [ref=f3e510]:
+            - generic [ref=f3e511]: Összeg (Ft)
+            - generic [ref=f3e513]: 5,000
+          - generic [ref=f3e515]: Számla
+        - generic [ref=f3e520]:
+          - generic [ref=f3e521]:
+            - generic [ref=f3e522]: Dátum
+            - textbox "Dátum" [ref=f3e527] [cursor=pointer]: 07/28/2026
+          - generic [ref=f3e528]:
+            - generic [ref=f3e529]: Megrendelő (Klinika)
+            - combobox "Megrendelő (Klinika)" [ref=f3e536]
+        - generic [ref=f3e537]:
+          - generic [ref=f3e538]:
+            - generic [ref=f3e539]: Páciens adatok
+            - generic [ref=f3e541]:
+              - generic [ref=f3e542]: Páciens neve
+              - textbox "Páciens neve" [ref=f3e546]
+            - generic [ref=f3e547]:
+              - generic [ref=f3e548]: Fogpozíció (FDI)
+              - textbox "Fogpozíció (FDI)" [ref=f3e552]
+          - generic [ref=f3e553]:
+            - generic [ref=f3e554]: Munka részletei
+            - generic [ref=f3e556]:
+              - generic [ref=f3e557]: Fogszín (VITA)
+              - combobox "Fogszín (VITA)" [ref=f3e561] [cursor=pointer]:
+                - option [selected]
+                - option "A1"
+                - option "A2"
+                - option "A3"
+                - option "A3.5"
+                - option "A4"
+                - option "B1"
+                - option "B2"
+                - option "B3"
+                - option "B4"
+                - option "C1"
+                - option "C2"
+                - option "C3"
+                - option "C4"
+                - option "D2"
+                - option "D3"
+                - option "D4"
+                - option "BL1"
+                - option "BL2"
+                - option "BL3"
+                - option "BL4"
+            - generic [ref=f3e562]:
+              - generic [ref=f3e563]: Munka típusa
+              - combobox "Munka típusa" [active] [ref=f3e567] [cursor=pointer]:
+                - option [selected]
+                - option "Korona"
+                - option "Híd"
+                - option "Implant"
+                - option "Facet"
+                - option "Ideiglenes"
+                - option "Javítás"
+                - option "Monolitikus"
+                - option "Grandio"
+                - option "Műíny"
+                - option "Egyéb"
+            - generic [ref=f3e568]:
+              - generic [ref=f3e569]: Darabszám
+              - textbox "Darabszám" [ref=f3e573]: "1"
+            - generic [ref=f3e574]:
+              - generic [ref=f3e575]: Egységár (Ft/db)
+              - textbox "Egységár (Ft/db)" [ref=f3e579]: 5,000
+        - textbox "Megjegyzések..." [ref=f3e585]
+        - generic [ref=f3e586]:
+          - generic [ref=f3e587]: Dokumentumok / Képek
+          - button "Attach Dokumentumok / Képek" [ref=f3e596] [cursor=pointer]:
+            - generic "Attach" [ref=f3e597]: 
+            - text: Dokumentumok / Képek
+      - generic [ref=f3e599]:
+        - generic [ref=f3e601]:
+          - button "Send message" [ref=f3e602] [cursor=pointer]
+          - button "Log note" [ref=f3e603] [cursor=pointer]
+          - button "Activities" [ref=f3e604] [cursor=pointer]
+          - button "Search Messages" [ref=f3e606] [cursor=pointer]:
+            - img [ref=f3e607]: 
+          - generic [ref=f3e608]:
+            - button "Attach files" [disabled]:
+              - generic: 
+          - generic [ref=f3e609]:
+            - button "0" [disabled]:
+              - img: 
+              - superscript: "0"
+          - button "Follow" [ref=f3e610] [cursor=pointer]
+        - generic [ref=f3e615]:
+          - generic [ref=f3e617]:
+            - separator [ref=f3e618]
+            - generic [ref=f3e619]: Today
+            - separator [ref=f3e620]
+          - group "System notification" [ref=f3e621]:
+            - generic [ref=f3e622]:
+              - generic "Open card" [ref=f3e624] [cursor=pointer]
+              - generic [ref=f3e626]:
+                - generic [ref=f3e627]:
+                  - generic "Open card" [ref=f3e628] [cursor=pointer]:
+                    - strong [ref=f3e629]: Administrator
+                  - generic "7/28/2026, 6:22:54 AM" [ref=f3e630]: Today at 6:22 AM
+                - generic [ref=f3e631]: Creating a new record...
