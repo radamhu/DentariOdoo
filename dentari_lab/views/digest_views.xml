@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="digest_digest_view_form_dentari_lab" model="ir.ui.view">
+        <field name="name">digest.digest.view.form.dentari.lab</field>
+        <field name="model">digest.digest</field>
+        <field name="inherit_id" ref="digest.digest_digest_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//sheet" position="inside">
+                <group string="Dentari Lab" groups="dentari_lab.group_lab_manager">
+                    <field name="kpi_dentari_lab_new_logs"/>
+                    <field name="kpi_dentari_lab_revenue"/>
+                    <field name="kpi_dentari_lab_unbilled"/>
+                </group>
+            </xpath>
+        </field>
+    </record>
+</odoo>

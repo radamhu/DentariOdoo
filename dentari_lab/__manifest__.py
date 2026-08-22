@@ -1,9 +1,9 @@
 {
     'name': 'Dentari Lab',
-    'version': '18.0.1.2.0',
+    'version': '18.0.1.3.0',
     'category': 'Dental / Laboratory',
     'summary': 'Dental laboratory work log tracking',
-    'depends': ['base', 'mail', 'account'],
+    'depends': ['base', 'mail', 'account', 'digest'],
     'data': [
         'security/groups.xml',
         'security/ir.model.access.csv',
@@ -14,6 +14,7 @@
         'views/dental_work_log_views.xml',
         'views/wizard_invoice_views.xml',
         'views/wizard_monthly_views.xml',
+        'views/digest_views.xml',
         'views/menus.xml',
     ],
     'installable': True,
