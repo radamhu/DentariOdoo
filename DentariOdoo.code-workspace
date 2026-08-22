@@ -5,7 +5,7 @@
 		}
 	],
 	"settings": {
-		"window.title": "${activeEditorShort}${separator}${rootName}${separator}${profileName}${separator}[Branch: ${activeRepositoryBranchName}]",
+		"window.title": "${activeEditorShort}${separator}${rootName}${separator}${profileName}${separator}[Branch: develop]",
 		"xml.symbols.enabled": false,
 		"python.languageServer": "None"
 	}

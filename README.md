@@ -32,3 +32,14 @@ DentariOdoo is a custom **Odoo 18** module development project for a dental labo
 | [docs/DESIGN.md](docs/DESIGN.md) | Full system design — data model, security, views, decisions log |
 | [docs/DEPLOY.md](docs/DEPLOY.md) | Infrastructure & deployment reference — Docker Compose, backups, monitoring |
 | [docs/TICKET-001-dentari-lab-module.md](docs/TICKET-001-dentari-lab-module.md) | M1 acceptance criteria and Odoo 18 implementation notes |
+
+---
+
+## Development
+
+This project ships via **oec.sh**. Ticket work → deploy → live verify follow the
+`odoo-oecsh-ticket-deploy` skill (`~/.claude/skills/odoo-oecsh-ticket-deploy/SKILL.md`):
+code change → push → oec.sh redeploy → Odoo dev-mode + module upgrade → Playwright
+screenshot → issue-tracker comment. Covers oec.sh API endpoints, apps-upgrade UI gotcha,
+Playwright session gotcha, credentials reference. Use it for any ticket that needs to land
+on a real environment and be verified live, not just committed.
