@@ -31,7 +31,8 @@ DentariOdoo is a custom **Odoo 18** module development project for a dental labo
 |----------|---------|
 | [docs/DESIGN.md](docs/DESIGN.md) | Full system design — data model, security, views, decisions log |
 | [docs/DEPLOY.md](docs/DEPLOY.md) | Infrastructure & deployment reference — Docker Compose, backups, monitoring |
-| [docs/TICKET-001-dentari-lab-module.md](docs/TICKET-001-dentari-lab-module.md) | M1 acceptance criteria and Odoo 18 implementation notes |
+| [docs/TESTING.md](docs/TESTING.md) | Test setup and running tests |
+| [docs/PROJECT-ANALYSIS.md](docs/PROJECT-ANALYSIS.md) | Project analysis notes |
 
 ---
 
