@@ -1,1 +1,3 @@
 id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_quick_expense_technician,quick expense technician,model_dental_quick_expense,dentari_lab.group_lab_technician,1,1,1,0
+access_quick_expense_manager,quick expense manager,model_dental_quick_expense,dentari_lab.group_lab_manager,1,1,1,1
