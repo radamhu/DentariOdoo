@@ -1,0 +1,5 @@
+# Explicit pyOpenSSL pin — oec.sh's Odoo 18.0 base-image dependency step pins
+# `cryptography` for compat but does not install `pyOpenSSL` itself, so Odoo's
+# email/cert helpers (GEN_EMAIL) hit "ModuleNotFoundError: No module named 'OpenSSL'"
+# during the deploy dependency-check stage. Force it in explicitly.
+pyOpenSSL>=24.0.0
