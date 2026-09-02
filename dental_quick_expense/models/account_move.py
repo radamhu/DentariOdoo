@@ -27,3 +27,19 @@ def quick_expense_category_accounts(env):
 
 class AccountMove(models.Model):
     _inherit = 'account.move'
+
+    expense_category_id = fields.Many2one(
+        'account.account',
+        string='Kategória',
+        compute='_compute_expense_category_id',
+        store=True,
+    )
+
+    @api.depends('invoice_line_ids.account_id')
+    def _compute_expense_category_id(self):
+        category_accounts = quick_expense_category_accounts(self.env)
+        for move in self:
+            line = move.invoice_line_ids.filtered(
+                lambda l: l.account_id in category_accounts
+            )
+            move.expense_category_id = line[:1].account_id

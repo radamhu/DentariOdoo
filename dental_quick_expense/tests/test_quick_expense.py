@@ -68,3 +68,45 @@ class TestQuickExpenseWizard(TransactionCase):
             ('invoice_line_ids.name', '=', 'Teszt hiányos'),
         ])
         self.assertEqual(len(moves), 0)
+
+
+class TestQuickExpenseComputedCategory(TransactionCase):
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.partner = cls.env['res.partner'].create({'name': 'Teszt Szállító 2'})
+        from odoo.addons.dental_quick_expense.models.account_move import (
+            quick_expense_category_accounts,
+        )
+        cls.category = quick_expense_category_accounts(cls.env)[0]
+
+    def test_expense_category_id_computed_from_line(self):
+        move = self.env['account.move'].create({
+            'move_type': 'in_invoice',
+            'partner_id': self.partner.id,
+            'invoice_line_ids': [(0, 0, {
+                'account_id': self.category.id,
+                'name': 'Teszt sor',
+                'quantity': 1,
+                'price_unit': 100,
+            })],
+        })
+        self.assertEqual(move.expense_category_id, self.category)
+
+    def test_expense_category_id_false_for_unrelated_bill(self):
+        other_account = self.env['account.account'].search([
+            ('account_type', '=', 'expense'),
+            ('id', 'not in', self.category.ids),
+        ], limit=1)
+        move = self.env['account.move'].create({
+            'move_type': 'in_invoice',
+            'partner_id': self.partner.id,
+            'invoice_line_ids': [(0, 0, {
+                'account_id': other_account.id,
+                'name': 'Nem kiadás',
+                'quantity': 1,
+                'price_unit': 100,
+            })],
+        })
+        self.assertFalse(move.expense_category_id)
