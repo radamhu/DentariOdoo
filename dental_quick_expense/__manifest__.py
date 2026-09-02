@@ -6,6 +6,7 @@
     'depends': ['account', 'dentari_lab'],
     'data': [
         'security/ir.model.access.csv',
+        'security/groups.xml',
         'data/expense_categories.xml',
         'views/quick_expense_views.xml',
         'views/expense_list_views.xml',

@@ -34,6 +34,11 @@ class AccountMove(models.Model):
         compute='_compute_expense_category_id',
         store=True,
     )
+    expense_description = fields.Char(
+        string='Leírás',
+        compute='_compute_expense_description',
+        store=True,
+    )
 
     @api.depends('invoice_line_ids.account_id')
     def _compute_expense_category_id(self):
@@ -43,3 +48,8 @@ class AccountMove(models.Model):
                 lambda l: l.account_id in category_accounts
             )
             move.expense_category_id = line[:1].account_id
+
+    @api.depends('invoice_line_ids.name')
+    def _compute_expense_description(self):
+        for move in self:
+            move.expense_description = move.invoice_line_ids[:1].name

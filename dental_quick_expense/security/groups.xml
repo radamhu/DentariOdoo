@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- dentari_lab.group_lab_technician has no accounting rights by default,
+         which blocks a plain technician from both the Kiadások list (reading
+         account.move) and the wizard's action_save() (creating account.move).
+         Extend the group from here rather than editing dentari_lab's own
+         data, since this addon depends on dentari_lab and the group is meant
+         to gain accounting rights only when dental_quick_expense is
+         installed. -->
+    <record id="dentari_lab.group_lab_technician" model="res.groups">
+        <field name="implied_ids" eval="[(4, ref('account.group_account_invoice'))]"/>
+    </record>
+</odoo>

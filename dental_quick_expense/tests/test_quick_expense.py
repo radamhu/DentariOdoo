@@ -1,5 +1,10 @@
-from odoo.exceptions import UserError, ValidationError
+import ast
+
+import psycopg2
+
+from odoo.exceptions import UserError
 from odoo.tests.common import TransactionCase, tagged
+from odoo.tools import mute_logger
 
 
 @tagged('post_install', '-at_install')
@@ -52,9 +57,21 @@ class TestQuickExpenseWizard(TransactionCase):
         self.assertEqual(line.account_id, self.category)
         self.assertEqual(line.name, 'Teszt kiadás')
         self.assertEqual(line.price_unit, 5000)
+        self.assertEqual(line.tax_ids, self.tax)
+        self.assertGreater(move.amount_tax, 0)
 
+    @mute_logger('odoo.sql_db')
     def test_missing_required_field_blocks_save(self):
-        with self.assertRaises(ValidationError):
+        # net_amount is a required NOT NULL column on a TransientModel, so
+        # omitting it on create() doesn't get converted to a Python-level
+        # ValidationError inside a TransactionCase -- that conversion only
+        # happens on the RPC dispatch path. Here it raises a raw
+        # psycopg2.IntegrityError (NotNullViolation) and leaves the cursor
+        # in an aborted-transaction state, so no further queries can run on
+        # it within this test -- the exception itself is sufficient proof
+        # that no dental.quick.expense record (and therefore no
+        # account.move) was created.
+        with self.assertRaises(psycopg2.IntegrityError):
             self.env['dental.quick.expense'].create({
                 'partner_id': self.partner.id,
                 'category_account_id': self.category.id,
@@ -62,12 +79,6 @@ class TestQuickExpenseWizard(TransactionCase):
                 'tax_id': self.tax.id,
                 # net_amount intentionally omitted
             })
-        moves = self.env['account.move'].search([
-            ('partner_id', '=', self.partner.id),
-            ('ref', '=', False),
-            ('invoice_line_ids.name', '=', 'Teszt hiányos'),
-        ])
-        self.assertEqual(len(moves), 0)
 
     def test_attachment_relinked_to_move_not_wizard(self):
         wizard = self.env['dental.quick.expense'].create({
@@ -91,19 +102,25 @@ class TestQuickExpenseWizard(TransactionCase):
         self.assertNotEqual(attachment.res_id, wizard.id)
 
     def test_category_domain_excludes_non_expense_accounts(self):
-        from odoo.addons.dental_quick_expense.models.account_move import (
-            quick_expense_category_accounts,
-        )
+        # quick_expense_category_accounts() always returns exactly the 11
+        # hardcoded xmlids by construction, so asserting against its result
+        # would pass even with no domain restriction on the field at all.
+        # Read the field's *actual* advertised domain instead, the same way
+        # the client would build the m2o's search domain.
         revenue_account = self.env['account.account'].create({
             'name': 'Teszt bevétel',
             'code': '9999',
             'account_type': 'income',
         })
-        self.assertNotIn(
-            revenue_account.id, quick_expense_category_accounts(self.env).ids,
-        )
+        field = self.env['dental.quick.expense']._fields['category_account_id']
+        domain = field.domain
+        if callable(domain):
+            domain = domain(self.env['dental.quick.expense'])
+        matched = self.env['account.account'].search(domain)
+        self.assertNotIn(revenue_account.id, matched.ids)
 
 
+@tagged('post_install', '-at_install')
 class TestQuickExpenseComputedCategory(TransactionCase):
 
     @classmethod
@@ -194,7 +211,7 @@ class TestQuickExpenseListScope(TransactionCase):
             })],
         })
         action = self.env.ref('dental_quick_expense.action_dental_quick_expense_list')
-        domain = eval(action.domain)
+        domain = ast.literal_eval(action.domain)
         found = self.env['account.move'].search(domain)
         self.assertIn(quick_move, found)
         self.assertNotIn(unrelated_move, found)
