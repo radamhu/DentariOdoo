@@ -216,23 +216,36 @@ class TestQuickExpenseErrorHandling(TransactionCase):
         # one of the 11 noupdate="1" seeded category accounts: those are
         # never recreated by a module upgrade, so unlinking one here would
         # permanently remove it from any database this test runs against.
-        # The wizard's category_account_id domain is UI-only (not enforced
-        # by the ORM), so assigning this out-of-domain account still
-        # exercises action_save()'s existence check faithfully.
+        #
+        # The throwaway account must never be assigned to a *persisted*
+        # wizard before being deleted: category_account_id is a required
+        # Many2one whose FK defaults to ondelete='cascade' (confirmed live
+        # against dentari-dev), so deleting a referenced account cascades
+        # away the referencing dental.quick.expense row too -- the wizard
+        # vanishes outright, and the subsequent action_save() call fails
+        # with a MissingError ("Record does not exist") rather than the
+        # intended UserError check/message. To exercise action_save()'s
+        # own `self.category_account_id.exists()` guard faithfully, the
+        # account is deleted *before* it is ever attached to a record, and
+        # the wizard is built via .new() (never persisted, so nothing
+        # triggers an FK write) with the already-deleted id assigned
+        # directly -- the field's domain isn't enforced at the ORM level,
+        # only in the UI, so this still exercises the real check.
         throwaway_account = self.env['account.account'].create({
             'name': 'Ideiglenes teszt kategória',
             'code': 'DQE9998',
             'account_type': 'expense',
         })
-        wizard = self.env['dental.quick.expense'].create({
+        throwaway_id = throwaway_account.id
+        throwaway_account.unlink()
+
+        wizard = self.env['dental.quick.expense'].new({
             'date': '2026-09-02',
             'partner_id': self.partner.id,
-            'category_account_id': throwaway_account.id,
+            'category_account_id': throwaway_id,
             'description': 'Kiadás törölt kategóriával',
             'net_amount': 1000,
             'tax_id': self.tax.id,
         })
-        throwaway_account.unlink()
-        wizard.invalidate_recordset()
-        with self.assertRaises(UserError):
+        with self.assertRaisesRegex(UserError, 'A kiadás kategória nem található'):
             wizard.action_save()
