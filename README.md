@@ -33,6 +33,7 @@ DentariOdoo is a custom **Odoo 18** module development project for a dental labo
 | [docs/DEPLOY.md](docs/DEPLOY.md) | Infrastructure & deployment reference — Docker Compose, backups, monitoring |
 | [docs/TESTING.md](docs/TESTING.md) | Test setup and running tests |
 | [docs/PROJECT-ANALYSIS.md](docs/PROJECT-ANALYSIS.md) | Project analysis notes |
+| [docs/dental_quick_expense-spike-findings.md](docs/dental_quick_expense-spike-findings.md) | Dental Quick Expense Phase 0 spike findings |
 
 ---
 

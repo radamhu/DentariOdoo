@@ -1,7 +1,8 @@
 # Dental Quick Expense — Phase 0 Spike Findings
 
 Date: 2026-09-02. Ran against `dentari-dev-8780` (`https://dentari-dev-8780.apps.oec.sh`,
-Odoo server version `18.0-20260817`) via `scripts/spike_quick_expense.py`.
+Odoo server version `18.0-20260817`) via `scripts/spike_quick_expense.py` (throwaway,
+deleted after Task 1, as intended).
 
 1. **Minimal fields for a valid Draft Vendor Bill:** `move_type='in_invoice'`,
    `partner_id`, `invoice_date`, and one `invoice_line_ids` tuple
@@ -23,7 +24,12 @@ Odoo server version `18.0-20260817`) via `scripts/spike_quick_expense.py`.
    isn't undermined by, journal identity. No additional journal-based filter
    is needed.
 
-3. **Expense account codes already in use:** 40 `account.account` records
+3. **Expense account codes already in use.** *Superseded by `data/expense_categories.xml` —
+   the actual category names used are the ticket's own list (Fogtechnikai anyag,
+   Futár/szállítás, …), not the placeholder names below, which were used only to test
+   code-collision during the spike.*
+
+   40 `account.account` records
    with `account_type='expense'` were returned, all in the Hungarian
    class-8 "other expenses" range **851000–876200** (e.g. `851000 Sales and
    distribution costs`, `852000 Administrative expenses`, …
