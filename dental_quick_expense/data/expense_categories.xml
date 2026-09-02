@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <record id="account_expense_fogtechnikai_anyag" model="account.account">
+            <field name="name">Fogtechnikai anyag</field>
+            <field name="code">899001</field>
+            <field name="account_type">expense</field>
+        </record>
+        <record id="account_expense_futar_szallitas" model="account.account">
+            <field name="name">Futár / szállítás</field>
+            <field name="code">899002</field>
+            <field name="account_type">expense</field>
+        </record>
+        <record id="account_expense_uzemanyag" model="account.account">
+            <field name="name">Üzemanyag</field>
+            <field name="code">899003</field>
+            <field name="account_type">expense</field>
+        </record>
+        <record id="account_expense_gep_eszkoz" model="account.account">
+            <field name="name">Gép / eszköz</field>
+            <field name="code">899004</field>
+            <field name="account_type">expense</field>
+        </record>
+        <record id="account_expense_gepkarbantartas" model="account.account">
+            <field name="name">Gépkarbantartás</field>
+            <field name="code">899005</field>
+            <field name="account_type">expense</field>
+        </record>
+        <record id="account_expense_telefon_internet" model="account.account">
+            <field name="name">Telefon / internet</field>
+            <field name="code">899006</field>
+            <field name="account_type">expense</field>
+        </record>
+        <record id="account_expense_rezsi" model="account.account">
+            <field name="name">Rezsi</field>
+            <field name="code">899007</field>
+            <field name="account_type">expense</field>
+        </record>
+        <record id="account_expense_konyveles" model="account.account">
+            <field name="name">Könyvelés</field>
+            <field name="code">899008</field>
+            <field name="account_type">expense</field>
+        </record>
+        <record id="account_expense_szoftver" model="account.account">
+            <field name="name">Szoftver</field>
+            <field name="code">899009</field>
+            <field name="account_type">expense</field>
+        </record>
+        <record id="account_expense_oktatas" model="account.account">
+            <field name="name">Oktatás</field>
+            <field name="code">899010</field>
+            <field name="account_type">expense</field>
+        </record>
+        <record id="account_expense_egyeb" model="account.account">
+            <field name="name">Egyéb</field>
+            <field name="code">899011</field>
+            <field name="account_type">expense</field>
+        </record>
+    </data>
+</odoo>
