@@ -69,6 +69,40 @@ class TestQuickExpenseWizard(TransactionCase):
         ])
         self.assertEqual(len(moves), 0)
 
+    def test_attachment_relinked_to_move_not_wizard(self):
+        wizard = self.env['dental.quick.expense'].create({
+            'date': '2026-09-02',
+            'partner_id': self.partner.id,
+            'category_account_id': self.category.id,
+            'description': 'Kiadás csatolmánnyal',
+            'net_amount': 3000,
+            'tax_id': self.tax.id,
+        })
+        attachment = self.env['ir.attachment'].create({
+            'name': 'bizonylat.pdf',
+            'datas': 'dGVzdA==',
+            'res_model': 'dental.quick.expense',
+            'res_id': wizard.id,
+        })
+        wizard.attachment_ids = [(6, 0, [attachment.id])]
+        wizard.action_save()
+
+        self.assertEqual(attachment.res_model, 'account.move')
+        self.assertNotEqual(attachment.res_id, wizard.id)
+
+    def test_category_domain_excludes_non_expense_accounts(self):
+        from odoo.addons.dental_quick_expense.models.account_move import (
+            quick_expense_category_accounts,
+        )
+        revenue_account = self.env['account.account'].create({
+            'name': 'Teszt bevétel',
+            'code': '9999',
+            'account_type': 'income',
+        })
+        self.assertNotIn(
+            revenue_account.id, quick_expense_category_accounts(self.env).ids,
+        )
+
 
 class TestQuickExpenseComputedCategory(TransactionCase):
 
