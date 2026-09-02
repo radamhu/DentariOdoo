@@ -63,11 +63,8 @@ class DentalQuickExpense(models.TransientModel):
                 'res_id': move.id,
             })
 
-        return {
-            'type': 'ir.actions.act_window',
-            'name': _('Kiadás'),
-            'res_model': 'account.move',
-            'view_mode': 'form',
-            'res_id': move.id,
-            'target': 'current',
-        }
+        action = self.env['ir.actions.act_window']._for_xml_id(
+            'dental_quick_expense.action_dental_quick_expense_list'
+        )
+        action['domain'] = [('id', '=', move.id)]
+        return action

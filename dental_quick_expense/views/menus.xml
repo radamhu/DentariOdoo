@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <menuitem
+        id="menu_dental_quick_expense_root"
+        name="Kiadások"
+        sequence="110"
+        groups="dentari_lab.group_lab_technician"
+    />
+
+    <menuitem
+        id="menu_dental_quick_expense_list"
+        name="Kiadások"
+        parent="menu_dental_quick_expense_root"
+        action="action_dental_quick_expense_list"
+        sequence="10"
+    />
+
+    <menuitem
+        id="menu_dental_quick_expense_new"
+        name="Új kiadás"
+        parent="menu_dental_quick_expense_root"
+        action="action_dental_quick_expense_new"
+        sequence="20"
+    />
+</odoo>

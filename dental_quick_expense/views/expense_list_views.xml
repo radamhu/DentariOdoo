@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_dental_quick_expense_list" model="ir.ui.view">
+        <field name="name">dental.quick.expense.account.move.list</field>
+        <field name="model">account.move</field>
+        <field name="arch" type="xml">
+            <list string="Kiadások" create="false">
+                <field name="invoice_date" string="Dátum"/>
+                <field name="partner_id" string="Szállító"/>
+                <field name="expense_category_id" string="Kategória"/>
+                <field name="amount_untaxed" string="Nettó"/>
+                <field name="amount_tax" string="ÁFA"/>
+                <field name="state" string="Státusz"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="action_dental_quick_expense_list" model="ir.actions.act_window">
+        <field name="name">Kiadások</field>
+        <field name="res_model">account.move</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('expense_category_id', '!=', False)]</field>
+        <field name="view_id" ref="view_dental_quick_expense_list"/>
+    </record>
+</odoo>

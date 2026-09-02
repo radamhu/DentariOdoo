@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_quick_expense_form" model="ir.ui.view">
+        <field name="name">dental.quick.expense.form</field>
+        <field name="model">dental.quick.expense</field>
+        <field name="arch" type="xml">
+            <form string="Új kiadás">
+                <group>
+                    <field name="date"/>
+                    <field name="partner_id"/>
+                    <field name="category_account_id"/>
+                    <field name="description"/>
+                    <field name="net_amount"/>
+                    <field name="currency_id" invisible="1"/>
+                    <field name="tax_id"/>
+                    <field name="ref"/>
+                    <field name="attachment_ids" widget="many2many_binary" string="Bizonylat"/>
+                </group>
+                <footer>
+                    <button name="action_save" type="object"
+                            string="Mentés" class="btn-primary"/>
+                    <button string="Mégse" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_dental_quick_expense_new" model="ir.actions.act_window">
+        <field name="name">Új kiadás</field>
+        <field name="res_model">dental.quick.expense</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+</odoo>

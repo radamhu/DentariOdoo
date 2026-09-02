@@ -144,3 +144,13 @@ class TestQuickExpenseComputedCategory(TransactionCase):
             })],
         })
         self.assertFalse(move.expense_category_id)
+
+
+@tagged('post_install', '-at_install')
+class TestQuickExpenseViews(TransactionCase):
+
+    def test_views_and_actions_registered(self):
+        self.assertTrue(self.env.ref('dental_quick_expense.view_quick_expense_form'))
+        self.assertTrue(self.env.ref('dental_quick_expense.action_dental_quick_expense_list'))
+        self.assertTrue(self.env.ref('dental_quick_expense.action_dental_quick_expense_new'))
+        self.assertTrue(self.env.ref('dental_quick_expense.menu_dental_quick_expense_root'))
