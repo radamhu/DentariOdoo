@@ -1,4 +1,4 @@
-from odoo.exceptions import ValidationError
+from odoo.exceptions import UserError, ValidationError
 from odoo.tests.common import TransactionCase, tagged
 
 
@@ -154,3 +154,85 @@ class TestQuickExpenseViews(TransactionCase):
         self.assertTrue(self.env.ref('dental_quick_expense.action_dental_quick_expense_list'))
         self.assertTrue(self.env.ref('dental_quick_expense.action_dental_quick_expense_new'))
         self.assertTrue(self.env.ref('dental_quick_expense.menu_dental_quick_expense_root'))
+
+
+@tagged('post_install', '-at_install')
+class TestQuickExpenseListScope(TransactionCase):
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.partner = cls.env['res.partner'].create({'name': 'Teszt Szállító 3'})
+        from odoo.addons.dental_quick_expense.models.account_move import (
+            quick_expense_category_accounts,
+        )
+        cls.category = quick_expense_category_accounts(cls.env)[0]
+        cls.other_expense_account = cls.env['account.account'].search([
+            ('account_type', '=', 'expense'),
+            ('id', 'not in', cls.category.ids),
+        ], limit=1)
+
+    def test_list_domain_excludes_unrelated_vendor_bills(self):
+        quick_move = self.env['account.move'].create({
+            'move_type': 'in_invoice',
+            'partner_id': self.partner.id,
+            'invoice_line_ids': [(0, 0, {
+                'account_id': self.category.id,
+                'name': 'Kiadás',
+                'quantity': 1,
+                'price_unit': 100,
+            })],
+        })
+        unrelated_move = self.env['account.move'].create({
+            'move_type': 'in_invoice',
+            'partner_id': self.partner.id,
+            'invoice_line_ids': [(0, 0, {
+                'account_id': self.other_expense_account.id,
+                'name': 'Más számla',
+                'quantity': 1,
+                'price_unit': 100,
+            })],
+        })
+        action = self.env.ref('dental_quick_expense.action_dental_quick_expense_list')
+        domain = eval(action.domain)
+        found = self.env['account.move'].search(domain)
+        self.assertIn(quick_move, found)
+        self.assertNotIn(unrelated_move, found)
+
+
+@tagged('post_install', '-at_install')
+class TestQuickExpenseErrorHandling(TransactionCase):
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.partner = cls.env['res.partner'].create({'name': 'Teszt Szállító 4'})
+        cls.tax = cls.env['account.tax'].search(
+            [('type_tax_use', '=', 'purchase')], limit=1,
+        )
+
+    def test_removed_category_account_blocks_save(self):
+        # Uses a freshly-created, unreferenced account.account rather than
+        # one of the 11 noupdate="1" seeded category accounts: those are
+        # never recreated by a module upgrade, so unlinking one here would
+        # permanently remove it from any database this test runs against.
+        # The wizard's category_account_id domain is UI-only (not enforced
+        # by the ORM), so assigning this out-of-domain account still
+        # exercises action_save()'s existence check faithfully.
+        throwaway_account = self.env['account.account'].create({
+            'name': 'Ideiglenes teszt kategória',
+            'code': 'DQE9998',
+            'account_type': 'expense',
+        })
+        wizard = self.env['dental.quick.expense'].create({
+            'date': '2026-09-02',
+            'partner_id': self.partner.id,
+            'category_account_id': throwaway_account.id,
+            'description': 'Kiadás törölt kategóriával',
+            'net_amount': 1000,
+            'tax_id': self.tax.id,
+        })
+        throwaway_account.unlink()
+        wizard.invalidate_recordset()
+        with self.assertRaises(UserError):
+            wizard.action_save()
