@@ -6,6 +6,15 @@
         <field name="view_mode">form</field>
         <field name="view_id" ref="mis_builder.mis_report_instance_result_view_form"/>
         <field name="res_id" ref="mis_report_instance_havi"/>
+        <!-- MisReportWidget reads the instance id primarily from the "id"
+             field's widget props, which does not populate reliably for a
+             persisted ir.actions.act_window opened directly (Odoo 18 does
+             not treat "id" as a normal bindable field). Its documented
+             fallback is context.active_model/active_id — normally supplied
+             automatically when mis.report.instance.preview() is called as a
+             button from an already-open record; supplying it explicitly
+             here reproduces that same context for a direct menu action. -->
+        <field name="context" eval="{'active_model': 'mis.report.instance', 'active_id': ref('mis_report_instance_havi')}"/>
     </record>
 
     <menuitem
