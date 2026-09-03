@@ -3,6 +3,10 @@
     <record id="mis_report_instance_havi" model="mis.report.instance">
         <field name="name">Kiadás / Bevétel havi riport</field>
         <field name="report_id" ref="mis_report_kiadas_bevetel"/>
+        <!-- Periods are relative (M-11..M0 roll forward every month), so a
+             static month-name label would go stale. This shows each
+             column's actual date range instead, always current. -->
+        <field name="display_columns_description" eval="True"/>
     </record>
 
     <record id="mis_report_period_m11" model="mis.report.instance.period">
