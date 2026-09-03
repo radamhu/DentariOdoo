@@ -216,6 +216,37 @@ Odoo test framework (`tests/test_quick_expense.py`), covering:
 5. Missing a required field (e.g. no `net_amount`) blocks save with a
    validation error, and no `account.move` is created.
 
+## Demo / Test Data
+
+Addition beyond the original KAN-27 ticket, requested directly for QA
+convenience: a demo-data seeder gives a freshly-installed (demo-enabled)
+database a realistic Kiadások list to look at without anyone manually
+clicking through the wizard first.
+
+- Seeds draft `account.move` records covering **every one of the 11
+  categories** (§9), at least two per category, so every category shows up
+  in the list at least once.
+- Dates spread across **the last several months** (not all on today's
+  date), so the list demonstrates real month-to-month variety rather than
+  a single batch created on one day.
+- Uses the exact same creation path as the wizard's own `action_save()`
+  (`account.move` + one `account.move.line`, no `journal_id` set
+  explicitly, draft state) — no special-cased demo-only logic that could
+  drift from the real save path.
+- Loaded via Odoo's standard `demo` manifest key, not `data` — so it
+  **never appears on a `--without-demo` (production) install**. This is
+  the same mechanism Odoo itself uses for its own demo data; it is not a
+  new/parallel data model, and there's nothing for a production admin to
+  remember to clean up.
+- Idempotent: re-running the seeder does not duplicate records — it checks
+  a marker (`ref='DEMO-QUICK-EXPENSE'`) before creating anything.
+- Exposed as a plain `@api.model` method on the wizard
+  (`dental.quick.expense._load_demo_expenses()`) so it can also be
+  triggered on demand (e.g. via RPC) against an already-installed
+  database, not only at first install — useful since enabling demo data on
+  an already-installed dev database doesn't otherwise retrigger Odoo's own
+  demo-loading step.
+
 ## Phase 0 Spike (precedes implementation, ticket §17)
 
 Throwaway investigation against the real Odoo 18 Community instance (via

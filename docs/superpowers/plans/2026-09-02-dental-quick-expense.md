@@ -21,6 +21,7 @@
 - Out of scope for v1: HR Expense, employees, approval workflow, budgets, PO/Inventory/Project/MRP, timesheets, analytic accounting, OCR, dashboards, custom payment/accounting logic.
 - Module name: `dental_quick_expense`, version starts at `18.0.1.0.0`, license `LGPL-3` (matches `dentari_lab` convention).
 - Dev environment: oec.sh `dentari-dev-8780`, database `1a918a02-54a2-4bbc-b88f-dd04abb51d77` (alias `dentariodo_dev` in Docker), credentials in `.env.dev`. Auto-deploy on push is **disabled** — every deploy needs an explicit trigger + module upgrade step (see `odoo-oecsh-ticket-deploy` skill).
+- Demo/test seed data (Task 8) loads only via Odoo's `demo` manifest key — never on a `--without-demo` (production) install, never a new/parallel data model, just plain `account.move` records created through the same path `action_save()` uses.
 
 ---
 
@@ -32,12 +33,14 @@ dental_quick_expense/
 ├── __manifest__.py                 # module metadata, data file list
 ├── data/
 │   └── expense_categories.xml      # 11 seeded account.account (type=expense) records
+├── demo/
+│   └── quick_expense_demo.xml      # demo-only: seeds test expenses across all categories/months (Task 8)
 ├── models/
 │   ├── __init__.py
 │   └── account_move.py             # expense_category_id compute + quick_expense_category_accounts() helper
 ├── wizard/
 │   ├── __init__.py
-│   └── quick_expense.py            # dental.quick.expense TransientModel + action_save()
+│   └── quick_expense.py            # dental.quick.expense TransientModel + action_save() + _load_demo_expenses()
 ├── views/
 │   ├── quick_expense_views.xml     # wizard form
 │   ├── expense_list_views.xml      # account.move list view + act_window, domain-scoped
@@ -46,10 +49,11 @@ dental_quick_expense/
 │   └── ir.model.access.csv         # ACL for dental.quick.expense (reuses dentari_lab groups)
 └── tests/
     ├── __init__.py
-    └── test_quick_expense.py       # TransactionCase covering spec's 5 test cases + category/domain checks
+    └── test_quick_expense.py       # TransactionCase covering spec's 5 test cases + category/domain checks + demo-data checks
 ```
 
 Root-level, throwaway (not committed as addon code):
+
 ```
 scripts/spike_quick_expense.py      # Phase 0 spike script (XML-RPC against dev), deleted after Task 1
 docs/dental_quick_expense-spike-findings.md   # committed — findings feed Tasks 2-9
@@ -60,10 +64,12 @@ docs/dental_quick_expense-spike-findings.md   # committed — findings feed Task
 ### Task 1: Phase 0 Spike — confirm account.move creation behavior on live dev
 
 **Files:**
+
 - Create: `scripts/spike_quick_expense.py` (throwaway, removed at end of task)
 - Create: `docs/dental_quick_expense-spike-findings.md` (committed)
 
 **Interfaces:**
+
 - Consumes: `.env.dev` credentials (`ODOO_URL`, `ODOO_DATABASE`, `ODOO_USERNAME`, `ODOO_PASSWORD`), same loader pattern as `tests/test_monthly_email.py`.
 - Produces: `docs/dental_quick_expense-spike-findings.md` — read by a human before Task 3 (wizard `action_save()`) to confirm the minimal-field approach below actually works on this instance. No later task's code depends on unknown values; the doc is a confirmation record, not a source of new field names.
 
@@ -242,6 +248,7 @@ git commit -m "docs: record Phase 0 spike findings for dental_quick_expense"
 ### Task 2: Addon scaffold + expense category data
 
 **Files:**
+
 - Create: `dental_quick_expense/__init__.py`
 - Create: `dental_quick_expense/__manifest__.py`
 - Create: `dental_quick_expense/models/__init__.py`
@@ -253,6 +260,7 @@ git commit -m "docs: record Phase 0 spike findings for dental_quick_expense"
 - Test: `dental_quick_expense/tests/test_quick_expense.py`
 
 **Interfaces:**
+
 - Produces: `quick_expense_category_accounts(env)` module function in `models/account_move.py` — returns an `account.account` recordset of the 11 seeded category accounts. Used by Task 3 (wizard field domain), Task 4 (compute), and this task's own test.
 - Produces: 11 `account.account` xmlids under the `dental_quick_expense.` prefix (exact codes/names below), matching ticket §9's category list.
 
@@ -280,11 +288,13 @@ class TestQuickExpenseCategories(TransactionCase):
 - [ ] **Step 2: Run test to verify it fails**
 
 Run:
+
 ```bash
 docker compose exec odoo odoo \
   -d dentariodo_dev --test-enable --stop-after-init \
   -i dental_quick_expense --test-tags dental_quick_expense
 ```
+
 Expected: FAIL — module `dental_quick_expense` not found / import error (nothing exists yet).
 
 - [ ] **Step 3: Write the manifest and package init files**
@@ -445,11 +455,13 @@ id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
 - [ ] **Step 7: Run test to verify it passes**
 
 Run:
+
 ```bash
 docker compose exec odoo odoo \
   -d dentariodo_dev --test-enable --stop-after-init \
   -i dental_quick_expense --test-tags dental_quick_expense
 ```
+
 Expected: PASS — `test_eleven_category_accounts_seeded` succeeds, module installs.
 
 - [ ] **Step 8: Commit**
@@ -464,14 +476,16 @@ git commit -m "feat: scaffold dental_quick_expense addon with 11 expense categor
 ### Task 3: Wizard model — action_save() creates a draft Vendor Bill
 
 **Files:**
+
 - Create: `dental_quick_expense/wizard/quick_expense.py`
 - Modify: `dental_quick_expense/wizard/__init__.py`
 - Modify: `dental_quick_expense/security/ir.model.access.csv`
 - Test: `dental_quick_expense/tests/test_quick_expense.py`
 
 **Interfaces:**
+
 - Consumes: `quick_expense_category_accounts(env)` from `models/account_move.py` (Task 2).
-- Produces: `dental.quick.expense` TransientModel with fields `date`, `partner_id`, `category_account_id`, `description`, `net_amount`, `currency_id`, `tax_id`, `ref`, `attachment_ids`, and method `action_save()` returning an `ir.actions.act_window` dict (`res_model='account.move'`). Later tasks (4, 5, 7, 8, 9) extend this class and its test file.
+- Produces: `dental.quick.expense` TransientModel with fields `date`, `partner_id`, `category_account_id`, `description`, `net_amount`, `currency_id`, `tax_id`, `ref`, `attachment_ids`, and method `action_save()` returning an `ir.actions.act_window` dict (`res_model='account.move'`). Task 6 changes `action_save()`'s return statement; Task 8 adds a new `_load_demo_expenses()` method to this same class. Tasks 4, 5, 7 extend the test file only (no changes to this class).
 
 - [ ] **Step 1: Write the failing test**
 
@@ -539,11 +553,13 @@ class TestQuickExpenseWizard(TransactionCase):
 - [ ] **Step 2: Run test to verify it fails**
 
 Run:
+
 ```bash
 docker compose exec odoo odoo \
   -d dentariodo_dev --test-enable --stop-after-init \
   -i dental_quick_expense --test-tags dental_quick_expense
 ```
+
 Expected: FAIL — `dental.quick.expense` model does not exist.
 
 - [ ] **Step 3: Write the wizard model**
@@ -641,11 +657,13 @@ access_quick_expense_manager,quick expense manager,model_dental_quick_expense,de
 - [ ] **Step 5: Run test to verify it passes**
 
 Run:
+
 ```bash
 docker compose exec odoo odoo \
   -d dentariodo_dev --test-enable --stop-after-init \
   -i dental_quick_expense --test-tags dental_quick_expense
 ```
+
 Expected: PASS — both tests in `TestQuickExpenseWizard` succeed.
 
 - [ ] **Step 6: Commit**
@@ -660,10 +678,12 @@ git commit -m "feat: dental.quick.expense wizard creates draft Vendor Bill"
 ### Task 4: account.move computed field expense_category_id
 
 **Files:**
+
 - Modify: `dental_quick_expense/models/account_move.py`
 - Test: `dental_quick_expense/tests/test_quick_expense.py`
 
 **Interfaces:**
+
 - Consumes: `quick_expense_category_accounts(env)` (Task 2), `dental.quick.expense` wizard (Task 3).
 - Produces: `account.move.expense_category_id` (stored `Many2one('account.account')`), `False` for any move whose lines don't touch a seeded category account. Task 6 uses this field as the Kiadások list domain.
 
@@ -759,9 +779,11 @@ git commit -m "feat: compute expense_category_id on account.move"
 ### Task 5: Attachment relink and category-domain tests
 
 **Files:**
+
 - Test: `dental_quick_expense/tests/test_quick_expense.py`
 
 **Interfaces:**
+
 - Consumes: `action_save()` (Task 3), `quick_expense_category_accounts(env)` (Task 2). No production code changes — Task 3's `action_save()` already relinks attachments and Task 3's field domain already restricts categories; this task adds the two spec-mandated regression tests that prove it.
 
 - [ ] **Step 1: Write the tests**
@@ -823,12 +845,14 @@ git commit -m "test: cover attachment relink and category domain exclusion"
 ### Task 6: Views — wizard form, Kiadások list, menus
 
 **Files:**
+
 - Create: `dental_quick_expense/views/quick_expense_views.xml`
 - Create: `dental_quick_expense/views/expense_list_views.xml`
 - Create: `dental_quick_expense/views/menus.xml`
 - Test: `dental_quick_expense/tests/test_quick_expense.py`
 
 **Interfaces:**
+
 - Consumes: `dental.quick.expense` model (Task 3), `account.move.expense_category_id` (Task 4).
 - Produces: xmlids `dental_quick_expense.view_quick_expense_form`, `dental_quick_expense.action_dental_quick_expense_list`, `dental_quick_expense.action_dental_quick_expense_new`, `dental_quick_expense.menu_dental_quick_expense_root`. Task 3's `action_save()` references `dental_quick_expense.action_dental_quick_expense_list` by xmlid — this task must define that action with exactly that id.
 
@@ -984,9 +1008,11 @@ git commit -m "feat: wizard form, Kiadások list, and menu wiring"
 ### Task 7: Kiadások list scoping and error-handling regression tests
 
 **Files:**
+
 - Test: `dental_quick_expense/tests/test_quick_expense.py`
 
 **Interfaces:**
+
 - Consumes: `action_dental_quick_expense_list` domain (Task 6), `action_save()` category-missing `UserError` (Task 3).
 
 - [ ] **Step 1: Write the tests**
@@ -1090,34 +1116,201 @@ git commit -m "test: cover Kiadások list scoping and missing-category error han
 
 ---
 
-### Task 8: Deploy to dev and verify live
+### Task 8: Demo/test data — seed expenses across every category and several months
+
+**Files:**
+
+- Modify: `dental_quick_expense/__manifest__.py` (add a `demo` key)
+- Create: `dental_quick_expense/demo/quick_expense_demo.xml`
+- Modify: `dental_quick_expense/wizard/quick_expense.py` (add `_load_demo_expenses()`)
+- Test: `dental_quick_expense/tests/test_quick_expense.py`
+
+**Interfaces:**
+
+- Consumes: `quick_expense_category_accounts(env)` (Task 2), the `account.move` creation pattern from `action_save()` (Task 3), `expense_category_id` compute (Task 4).
+- Produces: `dental.quick.expense._load_demo_expenses()` — an idempotent `@api.model` method, invoked automatically via the module's `demo` data on a demo-enabled install, and callable directly (e.g. via RPC) against an already-installed database. No new xmlids other than the seeded moves' shared `ref` marker.
+
+This task adds no user-facing behavior — it only seeds data so a demo/QA database's Kiadások list isn't empty. Nothing here runs on a `--without-demo` (production) install.
+
+- [ ] **Step 1: Write the failing test**
+
+```python
+# append to dental_quick_expense/tests/test_quick_expense.py
+@tagged('post_install', '-at_install')
+class TestQuickExpenseDemoData(TransactionCase):
+
+    def test_demo_expenses_cover_every_category_and_span_months(self):
+        self.env['dental.quick.expense']._load_demo_expenses()
+
+        from odoo.addons.dental_quick_expense.models.account_move import (
+            quick_expense_category_accounts,
+        )
+        categories = quick_expense_category_accounts(self.env)
+        demo_moves = self.env['account.move'].search([
+            ('ref', '=', 'DEMO-QUICK-EXPENSE'),
+        ])
+        self.assertTrue(demo_moves)
+
+        covered_categories = demo_moves.mapped('expense_category_id')
+        self.assertEqual(set(covered_categories.ids), set(categories.ids))
+
+        dates = demo_moves.mapped('invoice_date')
+        span_days = (max(dates) - min(dates)).days
+        self.assertGreaterEqual(span_days, 60)  # spans at least ~2 months
+
+    def test_demo_expenses_idempotent(self):
+        self.env['dental.quick.expense']._load_demo_expenses()
+        count_after_first = self.env['account.move'].search_count([
+            ('ref', '=', 'DEMO-QUICK-EXPENSE'),
+        ])
+        self.env['dental.quick.expense']._load_demo_expenses()
+        count_after_second = self.env['account.move'].search_count([
+            ('ref', '=', 'DEMO-QUICK-EXPENSE'),
+        ])
+        self.assertEqual(count_after_first, count_after_second)
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `docker compose exec odoo odoo -d dentariodo_dev --test-enable --stop-after-init -i dental_quick_expense --test-tags dental_quick_expense`
+Expected: FAIL — `_load_demo_expenses` does not exist on `dental.quick.expense`.
+
+- [ ] **Step 3: Add the demo-data method**
+
+```python
+# dental_quick_expense/wizard/quick_expense.py — add near the top, after existing imports
+from dateutil.relativedelta import relativedelta
+
+DEMO_EXPENSE_MARKER = 'DEMO-QUICK-EXPENSE'
+```
+
+Add this method to the `DentalQuickExpense` class, alongside `action_save()`:
+
+```python
+    @api.model
+    def _load_demo_expenses(self):
+        """Idempotent demo-data seeder: two draft Vendor Bills per seeded
+        category, spread across the last 6 months, so a fresh demo
+        database's Kiadások list isn't empty. Uses the same creation
+        shape as action_save() — no journal_id set explicitly, no
+        auto-posting. Safe to call more than once (checks the marker
+        ref first)."""
+        Move = self.env['account.move']
+        if Move.search_count([('ref', '=', DEMO_EXPENSE_MARKER)]):
+            return
+
+        partner = self.env['res.partner'].search(
+            [('name', '=', 'Demo Kiadás Szállító')], limit=1,
+        )
+        if not partner:
+            partner = self.env['res.partner'].create({
+                'name': 'Demo Kiadás Szállító',
+            })
+
+        tax = self.env['account.tax'].search(
+            [('type_tax_use', '=', 'purchase')], limit=1,
+        )
+        accounts = quick_expense_category_accounts(self.env)
+        today = fields.Date.context_today(self)
+
+        for i, account in enumerate(accounts):
+            for month_offset in (i % 6, (i + 3) % 6):
+                invoice_date = today - relativedelta(months=month_offset, days=i)
+                Move.create({
+                    'move_type': 'in_invoice',
+                    'partner_id': partner.id,
+                    'invoice_date': invoice_date,
+                    'ref': DEMO_EXPENSE_MARKER,
+                    'invoice_line_ids': [(0, 0, {
+                        'account_id': account.id,
+                        'name': f'Demo kiadás – {account.name}',
+                        'quantity': 1,
+                        'price_unit': 5000 + i * 500,
+                        'tax_ids': [(6, 0, [tax.id])] if tax else False,
+                    })],
+                })
+```
+
+Note `api` must already be imported at the top of this file (`from odoo import _, api, fields, models`) — Task 3's original import list was `from odoo import _, fields, models` (no `api`); add `api` to that line now.
+
+- [ ] **Step 4: Write the demo data file**
+
+```xml
+<!-- dental_quick_expense/demo/quick_expense_demo.xml -->
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <function model="dental.quick.expense" name="_load_demo_expenses" eval="[]"/>
+</odoo>
+```
+
+- [ ] **Step 5: Wire the demo file into the manifest**
+
+```python
+# dental_quick_expense/__manifest__.py — add alongside the existing 'data' key
+    'demo': [
+        'demo/quick_expense_demo.xml',
+    ],
+```
+
+- [ ] **Step 6: Run test to verify it passes**
+
+Run: `docker compose exec odoo odoo -d dentariodo_dev --test-enable --stop-after-init -i dental_quick_expense --test-tags dental_quick_expense`
+Expected: PASS — both new tests succeed.
+
+- [ ] **Step 7: Verify live on dev**
+
+Odoo only runs `demo` data at first install with demo enabled, not on a plain module upgrade of an already-installed module (which `dentari-dev-8780` already is, from Task 2 onward) — so seeing the seeded data there means calling the method directly rather than relying on the demo-install path. Per Ruling 1 (no local test runner), verify via XML-RPC: call `dental.quick.expense._load_demo_expenses()` once, then confirm live that `account.move.search_count([('ref','=','DEMO-QUICK-EXPENSE')])` is 22 (11 categories × 2), that every one of the 11 seeded category ids appears in `expense_category_id` across those moves, and that the earliest and latest `invoice_date` among them are at least ~60 days apart. Call it a second time and confirm the count is still 22 (idempotency holds live, not just in the test).
+
+- [ ] **Step 8: Commit**
+
+```bash
+git add dental_quick_expense/
+git commit -m "feat: seed demo expenses across all categories and several months back"
+```
+
+---
+
+### Task 9: Deploy to dev and verify live
 
 **Files:** none (deploy + manual verification only)
 
 **Interfaces:**
-- Consumes: the full `dental_quick_expense/` addon (Tasks 2-7).
+
+- Consumes: the full `dental_quick_expense/` addon (Tasks 2-8).
 
 Use the `odoo-oecsh-ticket-deploy` skill for this task — it covers push, oec.sh redeploy trigger, Odoo dev-mode + module install/upgrade, Playwright screenshot, and issue-tracker (KAN-27) comment. Key points specific to this project (see `[[oecsh-autodeploy-disabled]]` memory):
 
 - [ ] **Step 1: Push the branch and trigger an explicit dev deploy** (auto-deploy is disabled on `develop`/`main` — a push alone does not redeploy).
-
 - [ ] **Step 2: Install/upgrade the module on dev**
 
 ```bash
 docker compose exec odoo odoo -d dentariodo_dev -i dental_quick_expense --stop-after-init
 ```
+
 (or the oec.sh `quick-update` / Apps UI equivalent per the skill).
 
 - [ ] **Step 3: Manual E2E check** — log in to `https://dentari-dev-8780.apps.oec.sh`, open **Kiadások → Új kiadás**, fill all fields, attach a file, click **Mentés**. Verify: the Kiadások list opens showing exactly the new row, the underlying `account.move` is in Draft, and the attachment is visible on the bill (not on a transient record).
-
 - [ ] **Step 4: Screenshot the flow via Playwright** and attach to the KAN-27 ticket comment, per the `odoo-oecsh-ticket-deploy` skill.
-
 - [ ] **Step 5: Comment on KAN-27** summarizing what shipped and linking the dev environment.
 
 ---
 
 ## Self-Review Notes
 
-- **Spec coverage:** menu structure (Task 6), wizard fields in ticket §7 order (Task 6 form), draft-only save / no `action_post()` (Task 3), category accounts as `account.account` not a custom model (Task 2), Kiadások list reads directly off `account.move` (Task 6), all 5 out-of-scope items honored (no new dependencies added anywhere), Phase 0 spike precedes implementation (Task 1), all 5 spec Testing-section cases covered (Tasks 3, 5, 4/7), Security ACL reusing `dentari_lab` groups (Task 3), Error Handling table's 4 rows covered (Task 3 required-field/category checks, Task 7 missing-category test; attachment-upload-fails and uninstall-safety are native Odoo/ORM behavior not requiring addon code, called out here rather than a fabricated test).
+- **Spec coverage:** menu structure (Task 6), wizard fields in ticket §7 order (Task 6 form), draft-only save / no `action_post()` (Task 3), category accounts as `account.account` not a custom model (Task 2), Kiadások list reads directly off `account.move` (Task 6), all 5 out-of-scope items honored (no new dependencies added anywhere), Phase 0 spike precedes implementation (Task 1), all 5 spec Testing-section cases covered (Tasks 3, 5, 4/7), Security ACL reusing `dentari_lab` groups (Task 3), Error Handling table's 4 rows covered (Task 3 required-field/category checks, Task 7 missing-category test; attachment-upload-fails and uninstall-safety are native Odoo/ORM behavior not requiring addon code, called out here rather than a fabricated test), Demo/Test Data section covered (Task 8: every category represented, dates spanning several months, `demo`-key-gated so it never touches a production install, idempotent, reuses the same creation path as `action_save()`).
 - **Placeholder scan:** the only literal placeholders are the illustrative `4001`-`4011` account codes in Task 2, explicitly flagged as replaceable from Task 1's real findings — not a TBD, a concrete default with a documented override condition.
-- **Type consistency:** `quick_expense_category_accounts(env)` used identically in Tasks 2-7; `action_dental_quick_expense_list` xmlid matches between Task 3's usage and Task 6's definition; `expense_category_id` name matches between Task 4's compute and Task 6/7's domain and list view.
+- **Type consistency:** `quick_expense_category_accounts(env)` used identically in Tasks 2-8; `action_dental_quick_expense_list` xmlid matches between Task 3's usage and Task 6's definition; `expense_category_id` name matches between Task 4's compute and Task 6/7/8's domain and list view; `DEMO_EXPENSE_MARKER`/`_load_demo_expenses` naming consistent between Task 8's implementation and its own tests.
+
+## Note on plan vs. shipped code (as of the Task 8 addition)
+
+Tasks 1-7 and the original Task 8 (now Task 9) were already implemented, reviewed, and
+shipped to `develop` before this Task 8 was added. A final whole-branch review and one
+fix round then changed some of what actually shipped beyond what Tasks 1-7's text above
+still shows verbatim — most notably: real account codes `899001`-`899011` (not the
+`4001`-`4011` placeholders), `security/groups.xml` granting `group_lab_technician`
+`account.group_account_invoice`, the Kiadások list domain ANDed with
+`move_type='in_invoice'`, `view_mode` narrowed to `list` only (no form fallback), and a
+computed `expense_description` field/column. This plan file's Tasks 1-7 text was not
+retroactively rewritten to match — treat the running code and its git history as the
+source of truth for what already shipped; this document is authoritative going forward
+for Task 8 and Task 9.
