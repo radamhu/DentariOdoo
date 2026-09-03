@@ -118,6 +118,50 @@ def main() -> None:
         fail(f"Menu action does not point at the rolling instance: {action}")
     ok(f"Menu {menu_id} action points at instance {instance_id}")
 
+    # ------------------------------------------------------------------
+    # 3. Dev-only QA test dashboard computes the expected KPI values
+    # ------------------------------------------------------------------
+    qa_instance_id = xmlid("mis_report_instance_qa")
+
+    demo_moves = call(
+        "account.move", "search_read",
+        [[("ref", "=", "dentari-mis-demo")]],
+        fields=["amount_untaxed", "amount_tax"],
+    )
+    if not demo_moves:
+        fail("Demo Kiadás move not found — is this the dev env with demo data enabled?")
+    expected_netto = demo_moves[0]["amount_untaxed"]
+    expected_afa = demo_moves[0]["amount_tax"]
+    expected_brutto = expected_netto + expected_afa
+
+    demo_logs = call(
+        "dental.work.log", "search_read",
+        [[("patient_name", "=", "QA Teszt Páciens")]],
+        fields=["total_revenue"],
+    )
+    if not demo_logs:
+        fail("Demo work log not found — is this the dev env with demo data enabled?")
+    expected_revenue = demo_logs[0]["total_revenue"]
+    expected_eredmeny = expected_revenue - expected_brutto
+
+    result = call("mis.report.instance", "compute", [qa_instance_id])
+    values_by_label = {
+        row["label"]: row["cells"][0]["val"] for row in result["body"]
+    }
+
+    checks = [
+        ("Netto", expected_netto),
+        ("Áfa", expected_afa),
+        ("Bruttó", expected_brutto),
+        ("Bevétel (Összeg)", expected_revenue),
+        ("Eredmény", expected_eredmeny),
+    ]
+    for label, expected in checks:
+        actual = values_by_label.get(label)
+        if actual != expected:
+            fail(f"QA dashboard KPI '{label}': expected {expected}, got {actual}")
+        ok(f"QA dashboard KPI '{label}' = {actual} Ft")
+
     print("-" * 60)
     print("PASS  dentari_mis_reports smoke test completed successfully.")
 

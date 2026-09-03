@@ -9,7 +9,9 @@
         'data/mis_report_instance_data.xml',
         'views/menu.xml',
     ],
-    'demo': [],
+    'demo': [
+        'demo/mis_report_demo.xml',
+    ],
     'installable': True,
     'application': False,
     'auto_install': False,
