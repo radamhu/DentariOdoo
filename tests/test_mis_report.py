@@ -64,18 +64,24 @@ def main() -> None:
     def call(model: str, method: str, *args, **kwargs):
         return models.execute_kw(db, uid, password, model, method, list(args), kwargs)
 
-    def xmlid(name: str) -> int:
-        try:
-            _model, res_id = call(
-                "ir.model.data", "get_object_reference",
-                "dentari_mis_reports", name,
-            )
-        except Exception:
-            fail(
-                f"External ID not found: dentari_mis_reports.{name} — "
-                "upgrade the module with '-u dentari_mis_reports' first"
-            )
-        return res_id
+    def xmlid(name: str, required: bool = True) -> int | None:
+        # ir.model.data.get_object_reference is not RPC-callable on this Odoo
+        # instance (confirmed against a pre-existing dentari_lab xmlid too —
+        # not specific to this module). ir.model.data is a regular model, so
+        # search_read works the same way get_object_reference would.
+        recs = call(
+            "ir.model.data", "search_read",
+            [("module", "=", "dentari_mis_reports"), ("name", "=", name)],
+            fields=["res_id"],
+        )
+        if not recs:
+            if required:
+                fail(
+                    f"External ID not found: dentari_mis_reports.{name} — "
+                    "upgrade the module with '-u dentari_mis_reports' first"
+                )
+            return None
+        return recs[0]["res_id"]
 
     # ------------------------------------------------------------------
     # 1. Report template registered
@@ -102,7 +108,7 @@ def main() -> None:
     instance_id = xmlid("mis_report_instance_havi")
     period_count = call(
         "mis.report.instance.period", "search_count",
-        [[("report_instance_id", "=", instance_id)]],
+        [("report_instance_id", "=", instance_id)],
     )
     if period_count != 12:
         fail(f"Expected 12 periods on the rolling instance, found {period_count}")
@@ -120,12 +126,23 @@ def main() -> None:
 
     # ------------------------------------------------------------------
     # 3. Dev-only QA test dashboard computes the expected KPI values
+    #    (only present when this environment's database was created with
+    #    demo data enabled — the 'demo' manifest key never loads otherwise,
+    #    same as every other module's demo/ data on this environment)
     # ------------------------------------------------------------------
-    qa_instance_id = xmlid("mis_report_instance_qa")
+    qa_instance_id = xmlid("mis_report_instance_qa", required=False)
+    if qa_instance_id is None:
+        print("SKIP  QA dashboard not present — this environment's database "
+              "has demo data disabled (check: any module's 'demo' field is "
+              "False in ir.module.module)")
+        print("-" * 60)
+        print("PASS  dentari_mis_reports smoke test completed successfully "
+              "(QA dashboard check skipped).")
+        return
 
     demo_moves = call(
         "account.move", "search_read",
-        [[("ref", "=", "dentari-mis-demo")]],
+        [("ref", "=", "dentari-mis-demo")],
         fields=["amount_untaxed", "amount_tax"],
     )
     if not demo_moves:
@@ -136,7 +153,7 @@ def main() -> None:
 
     demo_logs = call(
         "dental.work.log", "search_read",
-        [[("patient_name", "=", "QA Teszt Páciens")]],
+        [("patient_name", "=", "QA Teszt Páciens")],
         fields=["total_revenue"],
     )
     if not demo_logs:
