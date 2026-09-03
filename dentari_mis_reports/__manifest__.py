@@ -4,7 +4,9 @@
     'category': 'Dental / Accounting',
     'summary': 'Kiadások vs Dentari Lab revenue profitability report (mis_builder)',
     'depends': ['mis_builder', 'dentari_lab', 'dental_quick_expense'],
-    'data': [],
+    'data': [
+        'data/mis_report_data.xml',
+    ],
     'demo': [],
     'installable': True,
     'application': False,

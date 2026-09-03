@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="mis_report_style_ft" model="mis.report.style">
+        <field name="name">Forint (0 tizedes)</field>
+        <field name="dp_inherit" eval="False"/>
+        <field name="dp">0</field>
+        <field name="suffix_inherit" eval="False"/>
+        <field name="suffix"> Ft</field>
+    </record>
+
+    <record id="mis_report_kiadas_bevetel" model="mis.report">
+        <field name="name">Kiadás / Bevétel riport</field>
+        <field name="description">Kiadások (Netto+Áfa) vs Dentari Lab bevétel (Összeg)</field>
+    </record>
+
+    <record id="mis_report_query_lab" model="mis.report.query">
+        <field name="report_id" ref="mis_report_kiadas_bevetel"/>
+        <field name="name">lab</field>
+        <field name="model_id" ref="dentari_lab.model_dental_work_log"/>
+        <field name="field_ids" eval="[(6, 0, [ref('dentari_lab.field_dental_work_log__total_revenue')])]"/>
+        <field name="aggregate">sum</field>
+        <field name="date_field" ref="dentari_lab.field_dental_work_log__date"/>
+        <field name="domain">[]</field>
+    </record>
+
+    <record id="mis_report_query_exp" model="mis.report.query">
+        <field name="report_id" ref="mis_report_kiadas_bevetel"/>
+        <field name="name">exp</field>
+        <field name="model_id" ref="account.model_account_move"/>
+        <field name="field_ids" eval="[(6, 0, [
+            ref('account.field_account_move__amount_untaxed'),
+            ref('account.field_account_move__amount_tax'),
+        ])]"/>
+        <field name="aggregate">sum</field>
+        <field name="date_field" ref="account.field_account_move__invoice_date"/>
+        <field name="domain">[('state', '=', 'posted'), ('move_type', 'in', ['in_invoice', 'in_refund']), ('expense_category_id', '!=', False)]</field>
+    </record>
+
+    <record id="mis_report_kpi_netto" model="mis.report.kpi">
+        <field name="report_id" ref="mis_report_kiadas_bevetel"/>
+        <field name="name">netto</field>
+        <field name="description">Netto</field>
+        <field name="expression">exp.amount_untaxed</field>
+        <field name="style_id" ref="mis_report_style_ft"/>
+        <field name="sequence">10</field>
+    </record>
+
+    <record id="mis_report_kpi_afa" model="mis.report.kpi">
+        <field name="report_id" ref="mis_report_kiadas_bevetel"/>
+        <field name="name">afa</field>
+        <field name="description">Áfa</field>
+        <field name="expression">exp.amount_tax</field>
+        <field name="style_id" ref="mis_report_style_ft"/>
+        <field name="sequence">20</field>
+    </record>
+
+    <record id="mis_report_kpi_brutto" model="mis.report.kpi">
+        <field name="report_id" ref="mis_report_kiadas_bevetel"/>
+        <field name="name">brutto</field>
+        <field name="description">Bruttó</field>
+        <field name="expression">exp.amount_untaxed + exp.amount_tax</field>
+        <field name="style_id" ref="mis_report_style_ft"/>
+        <field name="sequence">30</field>
+    </record>
+
+    <record id="mis_report_kpi_bevetel" model="mis.report.kpi">
+        <field name="report_id" ref="mis_report_kiadas_bevetel"/>
+        <field name="name">bevetel</field>
+        <field name="description">Bevétel (Összeg)</field>
+        <field name="expression">lab.total_revenue</field>
+        <field name="style_id" ref="mis_report_style_ft"/>
+        <field name="sequence">40</field>
+    </record>
+
+    <record id="mis_report_kpi_eredmeny" model="mis.report.kpi">
+        <field name="report_id" ref="mis_report_kiadas_bevetel"/>
+        <field name="name">eredmeny</field>
+        <field name="description">Eredmény</field>
+        <field name="expression">lab.total_revenue - exp.amount_untaxed - exp.amount_tax</field>
+        <field name="style_id" ref="mis_report_style_ft"/>
+        <field name="sequence">50</field>
+    </record>
+</odoo>
