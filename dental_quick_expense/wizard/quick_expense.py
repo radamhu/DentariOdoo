@@ -117,7 +117,7 @@ class DentalQuickExpense(models.TransientModel):
                 })
 
     @api.model
-    def _tmp_task8_rpc_verify_load_demo_expenses(self):
+    def tmp_task8_rpc_verify_load_demo_expenses(self):
         """TEMPORARY, to be reverted before task-8 finishes: Odoo's RPC
         layer refuses to call methods whose names start with '_', so
         there's no way to invoke _load_demo_expenses() directly over
