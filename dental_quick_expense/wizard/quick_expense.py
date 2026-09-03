@@ -115,13 +115,3 @@ class DentalQuickExpense(models.TransientModel):
                         'tax_ids': [(6, 0, [tax.id])] if tax else False,
                     })],
                 })
-
-    @api.model
-    def tmp_task8_rpc_verify_load_demo_expenses(self):
-        """TEMPORARY, to be reverted before task-8 finishes: Odoo's RPC
-        layer refuses to call methods whose names start with '_', so
-        there's no way to invoke _load_demo_expenses() directly over
-        XML-RPC for live verification. This public wrapper exists only to
-        make that one live check possible; it is removed (and the
-        environment redeployed) immediately after verification."""
-        return self._load_demo_expenses()
