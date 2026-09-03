@@ -11,6 +11,30 @@
     <record id="mis_report_kiadas_bevetel" model="mis.report">
         <field name="name">Kiadás / Bevétel riport</field>
         <field name="description">Kiadások (Netto+Áfa) vs Dentari Lab bevétel (Összeg)</field>
+        <!-- Ft formatting (dp=0, " Ft" suffix) applies to every row by
+             default; per-KPI styles below add color only and leave
+             dp/suffix uninherited so this default keeps showing through. -->
+        <field name="style_id" ref="mis_report_style_ft"/>
+    </record>
+
+    <record id="mis_report_style_expense" model="mis.report.style">
+        <field name="name">Kiadás (piros árnyalat)</field>
+        <field name="background_color_inherit" eval="False"/>
+        <field name="background_color">#f8d7da</field>
+    </record>
+
+    <record id="mis_report_style_revenue" model="mis.report.style">
+        <field name="name">Bevétel (zöld árnyalat)</field>
+        <field name="background_color_inherit" eval="False"/>
+        <field name="background_color">#d4edda</field>
+    </record>
+
+    <record id="mis_report_style_result" model="mis.report.style">
+        <field name="name">Eredmény (kiemelt, sárga)</field>
+        <field name="background_color_inherit" eval="False"/>
+        <field name="background_color">#fff3cd</field>
+        <field name="font_weight_inherit" eval="False"/>
+        <field name="font_weight">bold</field>
     </record>
 
     <record id="mis_report_query_lab" model="mis.report.query">
@@ -41,7 +65,7 @@
         <field name="name">netto</field>
         <field name="description">Netto</field>
         <field name="expression">exp.amount_untaxed</field>
-        <field name="style_id" ref="mis_report_style_ft"/>
+        <field name="style_id" ref="mis_report_style_expense"/>
         <field name="sequence">10</field>
     </record>
 
@@ -50,7 +74,7 @@
         <field name="name">afa</field>
         <field name="description">Áfa</field>
         <field name="expression">exp.amount_tax</field>
-        <field name="style_id" ref="mis_report_style_ft"/>
+        <field name="style_id" ref="mis_report_style_expense"/>
         <field name="sequence">20</field>
     </record>
 
@@ -59,7 +83,7 @@
         <field name="name">brutto</field>
         <field name="description">Bruttó</field>
         <field name="expression">exp.amount_untaxed + exp.amount_tax</field>
-        <field name="style_id" ref="mis_report_style_ft"/>
+        <field name="style_id" ref="mis_report_style_expense"/>
         <field name="sequence">30</field>
     </record>
 
@@ -68,7 +92,7 @@
         <field name="name">bevetel</field>
         <field name="description">Bevétel (Összeg)</field>
         <field name="expression">lab.total_revenue</field>
-        <field name="style_id" ref="mis_report_style_ft"/>
+        <field name="style_id" ref="mis_report_style_revenue"/>
         <field name="sequence">40</field>
     </record>
 
@@ -77,7 +101,7 @@
         <field name="name">eredmeny</field>
         <field name="description">Eredmény</field>
         <field name="expression">lab.total_revenue - exp.amount_untaxed - exp.amount_tax</field>
-        <field name="style_id" ref="mis_report_style_ft"/>
+        <field name="style_id" ref="mis_report_style_result"/>
         <field name="sequence">50</field>
     </record>
 </odoo>
