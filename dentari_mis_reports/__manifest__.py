@@ -6,6 +6,8 @@
     'depends': ['mis_builder', 'dentari_lab', 'dental_quick_expense'],
     'data': [
         'data/mis_report_data.xml',
+        'data/mis_report_instance_data.xml',
+        'views/menu.xml',
     ],
     'demo': [],
     'installable': True,

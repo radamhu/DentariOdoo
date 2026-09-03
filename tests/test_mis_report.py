@@ -96,6 +96,28 @@ def main() -> None:
             fail(f"{kpi_xmlid} expression mismatch: {kpi['expression']!r} != {expected_expr!r}")
         ok(f"KPI {kpi_xmlid} expression OK ({expected_expr})")
 
+    # ------------------------------------------------------------------
+    # 2. Rolling 12-month instance + menu registered
+    # ------------------------------------------------------------------
+    instance_id = xmlid("mis_report_instance_havi")
+    period_count = call(
+        "mis.report.instance.period", "search_count",
+        [[("report_instance_id", "=", instance_id)]],
+    )
+    if period_count != 12:
+        fail(f"Expected 12 periods on the rolling instance, found {period_count}")
+    ok(f"Rolling instance has {period_count} periods")
+
+    menu_id = xmlid("menu_dentari_mis_havi")
+    action_id = xmlid("action_mis_report_instance_havi")
+    action = call(
+        "ir.actions.act_window", "read", [action_id],
+        fields=["res_model", "res_id"],
+    )[0]
+    if action["res_model"] != "mis.report.instance" or action["res_id"] != instance_id:
+        fail(f"Menu action does not point at the rolling instance: {action}")
+    ok(f"Menu {menu_id} action points at instance {instance_id}")
+
     print("-" * 60)
     print("PASS  dentari_mis_reports smoke test completed successfully.")
 

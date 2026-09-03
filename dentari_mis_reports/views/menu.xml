@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="action_mis_report_instance_havi" model="ir.actions.act_window">
+        <field name="name">Kiadás / Bevétel havi riport</field>
+        <field name="res_model">mis.report.instance</field>
+        <field name="view_mode">form</field>
+        <field name="res_id" ref="mis_report_instance_havi"/>
+    </record>
+
+    <menuitem
+        id="menu_dentari_mis_havi"
+        name="Kiadás / Bevétel riport"
+        parent="dentari_lab.menu_dentari_stats"
+        action="action_mis_report_instance_havi"
+        groups="dentari_lab.group_lab_manager"
+        sequence="50"
+    />
+</odoo>
