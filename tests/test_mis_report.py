@@ -12,10 +12,37 @@ Usage:
 Credentials are loaded from .env.dev in the repo root.
 """
 
+import datetime
+import json
 import os
 import sys
-import xmlrpc.client
+import urllib.request
 from pathlib import Path
+
+
+def jsonrpc(url: str, service: str, method: str, args: list):
+    payload = {
+        "jsonrpc": "2.0", "method": "call",
+        "params": {"service": service, "method": method, "args": args},
+        "id": 1,
+    }
+    req = urllib.request.Request(
+        f"{url}/jsonrpc", data=json.dumps(payload).encode(),
+        headers={"Content-Type": "application/json"},
+    )
+    with urllib.request.urlopen(req) as resp:
+        r = json.loads(resp.read())
+        if "error" in r:
+            raise RuntimeError(json.dumps(r["error"], indent=2))
+        return r["result"]
+
+
+def previous_month_range():
+    today = datetime.date.today()
+    first_of_this_month = today.replace(day=1)
+    last_of_prev_month = first_of_this_month - datetime.timedelta(days=1)
+    first_of_prev_month = last_of_prev_month.replace(day=1)
+    return first_of_prev_month.isoformat(), last_of_prev_month.isoformat()
 
 
 def load_env(path: Path) -> None:
@@ -50,19 +77,19 @@ def main() -> None:
     if not url or not db or not password:
         fail("ODOO_URL, ODOO_DATABASE, ODOO_PASSWORD must be set (check .env.dev)")
 
-    common = xmlrpc.client.ServerProxy(f"{url}/xmlrpc/2/common")
     try:
-        uid = common.authenticate(db, username, password, {})
+        uid = jsonrpc(url, "common", "authenticate", [db, username, password, {}])
     except Exception as exc:
-        fail(f"XML-RPC connection error: {exc}")
+        fail(f"JSON-RPC connection error: {exc}")
     if not uid:
         fail("Login rejected — check credentials")
     ok(f"Login accepted (uid={uid})")
 
-    models = xmlrpc.client.ServerProxy(f"{url}/xmlrpc/2/object")
-
     def call(model: str, method: str, *args, **kwargs):
-        return models.execute_kw(db, uid, password, model, method, list(args), kwargs)
+        return jsonrpc(
+            url, "object", "execute_kw",
+            [db, uid, password, model, method, list(args), kwargs],
+        )
 
     def xmlid(name: str, required: bool = True) -> int | None:
         # ir.model.data.get_object_reference is not RPC-callable on this Odoo
@@ -140,25 +167,36 @@ def main() -> None:
               "(QA dashboard check skipped).")
         return
 
+    date_from, date_to = previous_month_range()
+
     demo_moves = call(
         "account.move", "search_read",
-        [("ref", "=", "dentari-mis-demo")],
+        [
+            ("invoice_date", ">=", date_from),
+            ("invoice_date", "<=", date_to),
+            ("state", "=", "posted"),
+            ("move_type", "=", "in_invoice"),
+            ("expense_category_id", "!=", False),
+        ],
         fields=["amount_untaxed", "amount_tax"],
     )
     if not demo_moves:
-        fail("Demo Kiadás move not found — is this the dev env with demo data enabled?")
-    expected_netto = demo_moves[0]["amount_untaxed"]
-    expected_afa = demo_moves[0]["amount_tax"]
+        fail("No posted expense moves found in the previous month — is this the dev env with demo data enabled?")
+    expected_netto = sum(m["amount_untaxed"] for m in demo_moves)
+    expected_afa = sum(m["amount_tax"] for m in demo_moves)
     expected_brutto = expected_netto + expected_afa
 
     demo_logs = call(
         "dental.work.log", "search_read",
-        [("patient_name", "=", "QA Teszt Páciens")],
+        [
+            ("date", ">=", date_from),
+            ("date", "<=", date_to),
+        ],
         fields=["total_revenue"],
     )
     if not demo_logs:
-        fail("Demo work log not found — is this the dev env with demo data enabled?")
-    expected_revenue = demo_logs[0]["total_revenue"]
+        fail("No work logs found in the previous month — is this the dev env with demo data enabled?")
+    expected_revenue = sum(l["total_revenue"] for l in demo_logs)
     expected_eredmeny = expected_revenue - expected_brutto
 
     result = call("mis.report.instance", "compute", [qa_instance_id])

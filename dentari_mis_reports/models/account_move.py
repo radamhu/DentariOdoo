@@ -22,6 +22,13 @@ class AccountMove(models.Model):
         if Move.search_count([('ref', '=', DEMO_MIS_MARKER)]):
             return
 
+        account = self.env.ref(
+            'dental_quick_expense.account_expense_fogtechnikai_anyag',
+            raise_if_not_found=False,
+        )
+        if not account:
+            return
+
         partner = self.env['res.partner'].search(
             [('name', '=', 'Demo Kiadás Szállító')], limit=1,
         )
@@ -42,12 +49,6 @@ class AccountMove(models.Model):
         tax = self.env['account.tax'].search(
             [('type_tax_use', '=', 'purchase')], limit=1,
         )
-        account = self.env.ref(
-            'dental_quick_expense.account_expense_fogtechnikai_anyag',
-            raise_if_not_found=False,
-        )
-        if not account:
-            return
 
         demo_date = fields.Date.context_today(self) - relativedelta(months=1)
         demo_date = demo_date.replace(day=15)

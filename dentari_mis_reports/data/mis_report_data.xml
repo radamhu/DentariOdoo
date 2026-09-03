@@ -33,7 +33,7 @@
         ])]"/>
         <field name="aggregate">sum</field>
         <field name="date_field" ref="account.field_account_move__invoice_date"/>
-        <field name="domain">[('state', '=', 'posted'), ('move_type', 'in', ['in_invoice', 'in_refund']), ('expense_category_id', '!=', False)]</field>
+        <field name="domain">[('state', '=', 'posted'), ('move_type', '=', 'in_invoice'), ('expense_category_id', '!=', False)]</field>
     </record>
 
     <record id="mis_report_kpi_netto" model="mis.report.kpi">

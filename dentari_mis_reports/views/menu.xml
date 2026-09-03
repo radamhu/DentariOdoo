@@ -4,6 +4,7 @@
         <field name="name">Kiadás / Bevétel havi riport</field>
         <field name="res_model">mis.report.instance</field>
         <field name="view_mode">form</field>
+        <field name="view_id" ref="mis_builder.mis_report_instance_result_view_form"/>
         <field name="res_id" ref="mis_report_instance_havi"/>
     </record>
 
