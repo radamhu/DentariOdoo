@@ -3,3 +3,9 @@
 # email/cert helpers (GEN_EMAIL) hit "ModuleNotFoundError: No module named 'OpenSSL'"
 # during the deploy dependency-check stage. Force it in explicitly.
 pyOpenSSL>=24.0.0
+
+# OCA mis_builder (reporting-engine, 18.0) — provides the mis.report /
+# mis.report.instance models the dentari_mis_reports addon builds on.
+# Pinned so Odoo's addons_path (which includes the venv's site-packages
+# odoo/addons dir) always has a matching version.
+odoo-addon-mis-builder==18.0.1.10.0.1
