@@ -266,3 +266,37 @@ class TestQuickExpenseErrorHandling(TransactionCase):
         })
         with self.assertRaisesRegex(UserError, 'A kiadás kategória nem található'):
             wizard.action_save()
+
+
+@tagged('post_install', '-at_install')
+class TestQuickExpenseDemoData(TransactionCase):
+
+    def test_demo_expenses_cover_every_category_and_span_months(self):
+        self.env['dental.quick.expense']._load_demo_expenses()
+
+        from odoo.addons.dental_quick_expense.models.account_move import (
+            quick_expense_category_accounts,
+        )
+        categories = quick_expense_category_accounts(self.env)
+        demo_moves = self.env['account.move'].search([
+            ('ref', '=', 'DEMO-QUICK-EXPENSE'),
+        ])
+        self.assertTrue(demo_moves)
+
+        covered_categories = demo_moves.mapped('expense_category_id')
+        self.assertEqual(set(covered_categories.ids), set(categories.ids))
+
+        dates = demo_moves.mapped('invoice_date')
+        span_days = (max(dates) - min(dates)).days
+        self.assertGreaterEqual(span_days, 60)  # spans at least ~2 months
+
+    def test_demo_expenses_idempotent(self):
+        self.env['dental.quick.expense']._load_demo_expenses()
+        count_after_first = self.env['account.move'].search_count([
+            ('ref', '=', 'DEMO-QUICK-EXPENSE'),
+        ])
+        self.env['dental.quick.expense']._load_demo_expenses()
+        count_after_second = self.env['account.move'].search_count([
+            ('ref', '=', 'DEMO-QUICK-EXPENSE'),
+        ])
+        self.assertEqual(count_after_first, count_after_second)

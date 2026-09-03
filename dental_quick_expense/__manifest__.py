@@ -12,6 +12,9 @@
         'views/expense_list_views.xml',
         'views/menus.xml',
     ],
+    'demo': [
+        'demo/quick_expense_demo.xml',
+    ],
     'installable': True,
     'application': False,
     'auto_install': False,
