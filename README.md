@@ -7,21 +7,33 @@
 
 ## Overview
 
-DentariOdoo is a custom **Odoo 18** module development project for a dental laboratory. It extends Odoo with domain-specific functionality to:
+DentariOdoo is a custom **Odoo 18** module suite for a dental laboratory. Three installable addons:
 
-- Track daily work output (work sheets / munkalapok)
-- Manage courier deliveries to dental clinics
-- Produce monthly revenue reports and invoices
+| Module | Purpose |
+|--------|---------|
+| `dentari_lab` | Work sheet tracking (`dental.work.log`), monthly invoicing wizard, monthly email digest |
+| `dental_quick_expense` | Lightweight expense-recording wizard over Vendor Bills, 11 expense categories |
+| `dentari_mis_reports` | Rolling 12-month Kiadás/Bevétel (expense/revenue) profitability report, built on `mis_builder` |
 
 | Capability | How |
 |------------|-----|
-| Work sheet management | `dentari_lab` module — `dental.work.log` model |
+| Work sheet management | `dentari_lab` — `dental.work.log` model |
 | Role-based access | Lab Technician / Lab Manager security groups |
 | Audit trail | `mail.thread` field-level change tracking |
-| Invoicing | `account.move` bridge (M4) |
+| Invoicing | `account.move` bridge |
 | Multi-clinic | Partner-based clinic separation |
+| Monthly email digest | `dentari_lab` digest wizard + templates |
+| Quick expense entry | `dental_quick_expense` wizard → draft Vendor Bill |
+| Kiadás/Bevétel reporting | `dentari_mis_reports` — rolling 12-month `mis.report.instance`, colorized report rows, per-column date ranges, "Statisztikák" menu |
+| Dev-only QA dashboard | Round-number demo data + smoke test for report verification |
 
-**Current status:** M1 complete (`dentari_lab` installable), M4 invoicing bridge in progress.
+**Current status:** `dentari_lab`, `dental_quick_expense`, and `dentari_mis_reports` all installable and deployed.
+
+**Screenshots** (dev environment, demo data):
+
+| `dentari_lab` — Munkalapok | `dental_quick_expense` — Kiadások | `dentari_mis_reports` — Kiadás/Bevétel |
+|:---:|:---:|:---:|
+| [![Munkalapok](docs/screenshots/dentari_lab_munkalapok.png)](docs/screenshots/dentari_lab_munkalapok.png) | [![Kiadások](docs/screenshots/dental_quick_expense_kiadasok.png)](docs/screenshots/dental_quick_expense_kiadasok.png) | [![Kiadás/Bevétel](docs/screenshots/dentari_mis_reports_kiadas_bevetel.png)](docs/screenshots/dentari_mis_reports_kiadas_bevetel.png) |
 
 ---
 
@@ -34,6 +46,12 @@ DentariOdoo is a custom **Odoo 18** module development project for a dental labo
 | [docs/TESTING.md](docs/TESTING.md) | Test setup and running tests |
 | [docs/PROJECT-ANALYSIS.md](docs/PROJECT-ANALYSIS.md) | Project analysis notes |
 | [docs/dental_quick_expense-spike-findings.md](docs/dental_quick_expense-spike-findings.md) | Dental Quick Expense Phase 0 spike findings |
+| [docs/superpowers/specs/2026-06-12-monthly-email-design.md](docs/superpowers/specs/2026-06-12-monthly-email-design.md) | Monthly email digest — design spec |
+| [docs/superpowers/plans/2026-06-12-monthly-email.md](docs/superpowers/plans/2026-06-12-monthly-email.md) | Monthly email digest — implementation plan |
+| [docs/superpowers/specs/2026-09-02-dental-quick-expense-design.md](docs/superpowers/specs/2026-09-02-dental-quick-expense-design.md) | Dental Quick Expense — design spec |
+| [docs/superpowers/plans/2026-09-02-dental-quick-expense.md](docs/superpowers/plans/2026-09-02-dental-quick-expense.md) | Dental Quick Expense — implementation plan |
+| [docs/superpowers/specs/2026-09-03-mis-builder-reports-design.md](docs/superpowers/specs/2026-09-03-mis-builder-reports-design.md) | MIS builder (Kiadás/Bevétel) reports — design spec |
+| [docs/superpowers/plans/2026-09-03-mis-builder-reports.md](docs/superpowers/plans/2026-09-03-mis-builder-reports.md) | MIS builder (Kiadás/Bevétel) reports — implementation plan |
 
 ---
 
