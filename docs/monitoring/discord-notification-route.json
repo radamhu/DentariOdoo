@@ -1,0 +1,19 @@
+{
+  "receiver": "Application HTTP \u2014 Discord",
+  "object_matchers": [
+    [
+      "notification_scope",
+      "=",
+      "application-http"
+    ]
+  ],
+  "group_by": [
+    "alertname",
+    "app",
+    "environment"
+  ],
+  "group_wait": "30s",
+  "group_interval": "5m",
+  "repeat_interval": "4h",
+  "continue": false
+}

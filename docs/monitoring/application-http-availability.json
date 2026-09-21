@@ -1,0 +1,1383 @@
+{
+  "uid": "application-http-availability",
+  "title": "Application HTTP Availability",
+  "description": "HTTP availability of Dentari and Adaminfo, explicitly separated into Production and Development. Two probes per URL.",
+  "tags": [
+    "http",
+    "availability",
+    "dentari",
+    "adaminfo",
+    "production",
+    "development"
+  ],
+  "timezone": "Europe/Budapest",
+  "schemaVersion": 39,
+  "version": 2,
+  "editable": true,
+  "graphTooltip": 1,
+  "refresh": "30s",
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": [
+      "30s",
+      "1m",
+      "5m"
+    ]
+  },
+  "templating": {
+    "list": []
+  },
+  "annotations": {
+    "list": []
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "HTTP availability \u2014 Production and Development",
+      "type": "text",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 3
+      },
+      "description": "Four active HTTPS checks from London and Frankfurt. Five-minute interval selected to fit the current execution quota.",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "**Four URLs \u00b7 London + Frankfurt \u00b7 Every 5 minutes \u00b7 10-second timeout**\n\n**UP** = both probes succeed \u00b7 **DEGRADED** = one fails \u00b7 **DOWN** = both fail \u00b7 **UNKNOWN** = either probe has no result within 15 minutes. Initial results can take one check interval. HTTP redirects are followed; final 2xx and valid TLS are required.\n\n[Manage HTTP checks](/a/grafana-synthetic-monitoring-app/checks)"
+      }
+    },
+    {
+      "id": 2,
+      "title": "Production",
+      "type": "row",
+      "gridPos": {
+        "x": 0,
+        "y": 3,
+        "w": 24,
+        "h": 1
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {},
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 3,
+      "title": "Dentari \u2014 Production \u2014 HTTP status",
+      "type": "stat",
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 12,
+        "h": 5
+      },
+      "description": "https://dentari-prod-3040.apps.oec.sh/\nExpected: two probes, 5-minute checks, 10-second timeout, final 2xx, valid TLS. A probe with no result within 15 minutes makes the state UNKNOWN.",
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "-1": {
+                  "text": "UNKNOWN",
+                  "color": "#808080"
+                },
+                "0": {
+                  "text": "DOWN",
+                  "color": "red"
+                },
+                "1": {
+                  "text": "DEGRADED",
+                  "color": "orange"
+                },
+                "2": {
+                  "text": "UP",
+                  "color": "green"
+                }
+              }
+            },
+            {
+              "type": "special",
+              "options": {
+                "match": "null",
+                "result": {
+                  "text": "UNKNOWN",
+                  "color": "#808080"
+                }
+              }
+            }
+          ],
+          "noValue": "UNKNOWN",
+          "min": -1,
+          "max": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "grafanacloud-prom"
+      },
+      "targets": [
+        {
+          "expr": "(sum((last_over_time(probe_success{job=\"dentari-prod-http\",instance=\"https://dentari-prod-3040.apps.oec.sh/\"}[15m]) and topk by (probe) (1, max_over_time(timestamp(probe_success{job=\"dentari-prod-http\",instance=\"https://dentari-prod-3040.apps.oec.sh/\"})[15m:30s])))) and (count((last_over_time(probe_success{job=\"dentari-prod-http\",instance=\"https://dentari-prod-3040.apps.oec.sh/\"}[15m]) and topk by (probe) (1, max_over_time(timestamp(probe_success{job=\"dentari-prod-http\",instance=\"https://dentari-prod-3040.apps.oec.sh/\"})[15m:30s])))) == 2)) or vector(-1)",
+          "legendFormat": "Dentari \u2014 Production",
+          "instant": true,
+          "range": false,
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "editorMode": "code"
+        }
+      ],
+      "links": [
+        {
+          "title": "Open application",
+          "url": "https://dentari-prod-3040.apps.oec.sh/",
+          "targetBlank": true
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Dentari \u2014 Production \u2014 Last probe result",
+      "type": "stat",
+      "gridPos": {
+        "x": 0,
+        "y": 9,
+        "w": 12,
+        "h": 3
+      },
+      "description": "Time of the most recent result from either probe. The HTTP status card independently requires fresh results from both probes. Results are retained for 15 minutes to cover the five-minute probe schedule.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "dateTimeAsIso",
+          "noValue": "No results yet"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "none",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "grafanacloud-prom"
+      },
+      "targets": [
+        {
+          "expr": "max(max_over_time(timestamp(probe_success{job=\"dentari-prod-http\",instance=\"https://dentari-prod-3040.apps.oec.sh/\"})[15m:30s])) * 1000",
+          "legendFormat": "Dentari \u2014 Production",
+          "instant": true,
+          "range": false,
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "editorMode": "code"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Dentari \u2014 Production \u2014 Successful checks",
+      "type": "stat",
+      "gridPos": {
+        "x": 0,
+        "y": 12,
+        "w": 12,
+        "h": 4
+      },
+      "description": "Percentage of collected successful probe results. Missing results are excluded. New checks show only available history, not full 24-hour/7-day coverage.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "decimals": 2,
+          "noValue": "No results yet"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "grafanacloud-prom"
+      },
+      "targets": [
+        {
+          "expr": "100 * sum(sum_over_time(probe_success{job=\"dentari-prod-http\",instance=\"https://dentari-prod-3040.apps.oec.sh/\"}[24h])) / sum(count_over_time(probe_success{job=\"dentari-prod-http\",instance=\"https://dentari-prod-3040.apps.oec.sh/\"}[24h]))",
+          "legendFormat": "24h",
+          "instant": true,
+          "range": false,
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "editorMode": "code"
+        },
+        {
+          "expr": "100 * sum(sum_over_time(probe_success{job=\"dentari-prod-http\",instance=\"https://dentari-prod-3040.apps.oec.sh/\"}[7d])) / sum(count_over_time(probe_success{job=\"dentari-prod-http\",instance=\"https://dentari-prod-3040.apps.oec.sh/\"}[7d]))",
+          "legendFormat": "7d",
+          "instant": true,
+          "range": false,
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "editorMode": "code"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Adaminfo \u2014 Production \u2014 HTTP status",
+      "type": "stat",
+      "gridPos": {
+        "x": 12,
+        "y": 4,
+        "w": 12,
+        "h": 5
+      },
+      "description": "https://adaminfo-prod-1240.apps.oec.sh/\nExpected: two probes, 5-minute checks, 10-second timeout, final 2xx, valid TLS. A probe with no result within 15 minutes makes the state UNKNOWN.",
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "-1": {
+                  "text": "UNKNOWN",
+                  "color": "#808080"
+                },
+                "0": {
+                  "text": "DOWN",
+                  "color": "red"
+                },
+                "1": {
+                  "text": "DEGRADED",
+                  "color": "orange"
+                },
+                "2": {
+                  "text": "UP",
+                  "color": "green"
+                }
+              }
+            },
+            {
+              "type": "special",
+              "options": {
+                "match": "null",
+                "result": {
+                  "text": "UNKNOWN",
+                  "color": "#808080"
+                }
+              }
+            }
+          ],
+          "noValue": "UNKNOWN",
+          "min": -1,
+          "max": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "grafanacloud-prom"
+      },
+      "targets": [
+        {
+          "expr": "(sum((last_over_time(probe_success{job=\"adaminfo-prod-http\",instance=\"https://adaminfo-prod-1240.apps.oec.sh/\"}[15m]) and topk by (probe) (1, max_over_time(timestamp(probe_success{job=\"adaminfo-prod-http\",instance=\"https://adaminfo-prod-1240.apps.oec.sh/\"})[15m:30s])))) and (count((last_over_time(probe_success{job=\"adaminfo-prod-http\",instance=\"https://adaminfo-prod-1240.apps.oec.sh/\"}[15m]) and topk by (probe) (1, max_over_time(timestamp(probe_success{job=\"adaminfo-prod-http\",instance=\"https://adaminfo-prod-1240.apps.oec.sh/\"})[15m:30s])))) == 2)) or vector(-1)",
+          "legendFormat": "Adaminfo \u2014 Production",
+          "instant": true,
+          "range": false,
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "editorMode": "code"
+        }
+      ],
+      "links": [
+        {
+          "title": "Open application",
+          "url": "https://adaminfo-prod-1240.apps.oec.sh/",
+          "targetBlank": true
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Adaminfo \u2014 Production \u2014 Last probe result",
+      "type": "stat",
+      "gridPos": {
+        "x": 12,
+        "y": 9,
+        "w": 12,
+        "h": 3
+      },
+      "description": "Time of the most recent result from either probe. The HTTP status card independently requires fresh results from both probes. Results are retained for 15 minutes to cover the five-minute probe schedule.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "dateTimeAsIso",
+          "noValue": "No results yet"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "none",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "grafanacloud-prom"
+      },
+      "targets": [
+        {
+          "expr": "max(max_over_time(timestamp(probe_success{job=\"adaminfo-prod-http\",instance=\"https://adaminfo-prod-1240.apps.oec.sh/\"})[15m:30s])) * 1000",
+          "legendFormat": "Adaminfo \u2014 Production",
+          "instant": true,
+          "range": false,
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "editorMode": "code"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "Adaminfo \u2014 Production \u2014 Successful checks",
+      "type": "stat",
+      "gridPos": {
+        "x": 12,
+        "y": 12,
+        "w": 12,
+        "h": 4
+      },
+      "description": "Percentage of collected successful probe results. Missing results are excluded. New checks show only available history, not full 24-hour/7-day coverage.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "decimals": 2,
+          "noValue": "No results yet"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "grafanacloud-prom"
+      },
+      "targets": [
+        {
+          "expr": "100 * sum(sum_over_time(probe_success{job=\"adaminfo-prod-http\",instance=\"https://adaminfo-prod-1240.apps.oec.sh/\"}[24h])) / sum(count_over_time(probe_success{job=\"adaminfo-prod-http\",instance=\"https://adaminfo-prod-1240.apps.oec.sh/\"}[24h]))",
+          "legendFormat": "24h",
+          "instant": true,
+          "range": false,
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "editorMode": "code"
+        },
+        {
+          "expr": "100 * sum(sum_over_time(probe_success{job=\"adaminfo-prod-http\",instance=\"https://adaminfo-prod-1240.apps.oec.sh/\"}[7d])) / sum(count_over_time(probe_success{job=\"adaminfo-prod-http\",instance=\"https://adaminfo-prod-1240.apps.oec.sh/\"}[7d]))",
+          "legendFormat": "7d",
+          "instant": true,
+          "range": false,
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "editorMode": "code"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "title": "Production \u2014 Availability history",
+      "type": "state-timeline",
+      "gridPos": {
+        "x": 0,
+        "y": 16,
+        "w": 24,
+        "h": 6
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "-1": {
+                  "text": "UNKNOWN",
+                  "color": "#808080"
+                },
+                "0": {
+                  "text": "DOWN",
+                  "color": "red"
+                },
+                "1": {
+                  "text": "DEGRADED",
+                  "color": "orange"
+                },
+                "2": {
+                  "text": "UP",
+                  "color": "green"
+                }
+              }
+            },
+            {
+              "type": "special",
+              "options": {
+                "match": "null",
+                "result": {
+                  "text": "UNKNOWN",
+                  "color": "#808080"
+                }
+              }
+            }
+          ],
+          "custom": {
+            "lineWidth": 0,
+            "fillOpacity": 80,
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showValue": "auto",
+        "mergeValues": true,
+        "rowHeight": 0.8,
+        "legend": {
+          "showLegend": false
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "grafanacloud-prom"
+      },
+      "targets": [
+        {
+          "expr": "(sum((last_over_time(probe_success{job=\"dentari-prod-http\",instance=\"https://dentari-prod-3040.apps.oec.sh/\"}[15m]) and topk by (probe) (1, max_over_time(timestamp(probe_success{job=\"dentari-prod-http\",instance=\"https://dentari-prod-3040.apps.oec.sh/\"})[15m:30s])))) and (count((last_over_time(probe_success{job=\"dentari-prod-http\",instance=\"https://dentari-prod-3040.apps.oec.sh/\"}[15m]) and topk by (probe) (1, max_over_time(timestamp(probe_success{job=\"dentari-prod-http\",instance=\"https://dentari-prod-3040.apps.oec.sh/\"})[15m:30s])))) == 2)) or vector(-1)",
+          "legendFormat": "Dentari \u2014 Production",
+          "instant": false,
+          "range": true,
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "editorMode": "code"
+        },
+        {
+          "expr": "(sum((last_over_time(probe_success{job=\"adaminfo-prod-http\",instance=\"https://adaminfo-prod-1240.apps.oec.sh/\"}[15m]) and topk by (probe) (1, max_over_time(timestamp(probe_success{job=\"adaminfo-prod-http\",instance=\"https://adaminfo-prod-1240.apps.oec.sh/\"})[15m:30s])))) and (count((last_over_time(probe_success{job=\"adaminfo-prod-http\",instance=\"https://adaminfo-prod-1240.apps.oec.sh/\"}[15m]) and topk by (probe) (1, max_over_time(timestamp(probe_success{job=\"adaminfo-prod-http\",instance=\"https://adaminfo-prod-1240.apps.oec.sh/\"})[15m:30s])))) == 2)) or vector(-1)",
+          "legendFormat": "Adaminfo \u2014 Production",
+          "instant": false,
+          "range": true,
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "editorMode": "code"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "title": "Production \u2014 Response time by probe",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 0,
+        "y": 22,
+        "w": 12,
+        "h": 7
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "grafanacloud-prom"
+      },
+      "targets": [
+        {
+          "expr": "probe_duration_seconds{job=\"dentari-prod-http\",instance=\"https://dentari-prod-3040.apps.oec.sh/\"}",
+          "legendFormat": "Dentari \u2014 {{probe}}",
+          "instant": false,
+          "range": true,
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "editorMode": "code"
+        },
+        {
+          "expr": "probe_duration_seconds{job=\"adaminfo-prod-http\",instance=\"https://adaminfo-prod-1240.apps.oec.sh/\"}",
+          "legendFormat": "Adaminfo \u2014 {{probe}}",
+          "instant": false,
+          "range": true,
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "editorMode": "code"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "title": "Production \u2014 HTTP response codes by probe",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 12,
+        "y": 22,
+        "w": 12,
+        "h": 7
+      },
+      "description": "Final HTTP status after redirects. A zero can indicate failure before an HTTP response; use HTTP status cards for overall success.",
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "stepAfter",
+            "lineWidth": 2,
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "grafanacloud-prom"
+      },
+      "targets": [
+        {
+          "expr": "probe_http_status_code{job=\"dentari-prod-http\",instance=\"https://dentari-prod-3040.apps.oec.sh/\"}",
+          "legendFormat": "Dentari \u2014 {{probe}}",
+          "instant": false,
+          "range": true,
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "editorMode": "code"
+        },
+        {
+          "expr": "probe_http_status_code{job=\"adaminfo-prod-http\",instance=\"https://adaminfo-prod-1240.apps.oec.sh/\"}",
+          "legendFormat": "Adaminfo \u2014 {{probe}}",
+          "instant": false,
+          "range": true,
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "editorMode": "code"
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "title": "Development",
+      "type": "row",
+      "gridPos": {
+        "x": 0,
+        "y": 29,
+        "w": 24,
+        "h": 1
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {},
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 13,
+      "title": "Dentari \u2014 Development \u2014 HTTP status",
+      "type": "stat",
+      "gridPos": {
+        "x": 0,
+        "y": 30,
+        "w": 12,
+        "h": 5
+      },
+      "description": "https://dentari-dev-8780.apps.oec.sh/\nExpected: two probes, 5-minute checks, 10-second timeout, final 2xx, valid TLS. A probe with no result within 15 minutes makes the state UNKNOWN.",
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "-1": {
+                  "text": "UNKNOWN",
+                  "color": "#808080"
+                },
+                "0": {
+                  "text": "DOWN",
+                  "color": "red"
+                },
+                "1": {
+                  "text": "DEGRADED",
+                  "color": "orange"
+                },
+                "2": {
+                  "text": "UP",
+                  "color": "green"
+                }
+              }
+            },
+            {
+              "type": "special",
+              "options": {
+                "match": "null",
+                "result": {
+                  "text": "UNKNOWN",
+                  "color": "#808080"
+                }
+              }
+            }
+          ],
+          "noValue": "UNKNOWN",
+          "min": -1,
+          "max": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "grafanacloud-prom"
+      },
+      "targets": [
+        {
+          "expr": "(sum((last_over_time(probe_success{job=\"dentari-dev-http\",instance=\"https://dentari-dev-8780.apps.oec.sh/\"}[15m]) and topk by (probe) (1, max_over_time(timestamp(probe_success{job=\"dentari-dev-http\",instance=\"https://dentari-dev-8780.apps.oec.sh/\"})[15m:30s])))) and (count((last_over_time(probe_success{job=\"dentari-dev-http\",instance=\"https://dentari-dev-8780.apps.oec.sh/\"}[15m]) and topk by (probe) (1, max_over_time(timestamp(probe_success{job=\"dentari-dev-http\",instance=\"https://dentari-dev-8780.apps.oec.sh/\"})[15m:30s])))) == 2)) or vector(-1)",
+          "legendFormat": "Dentari \u2014 Development",
+          "instant": true,
+          "range": false,
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "editorMode": "code"
+        }
+      ],
+      "links": [
+        {
+          "title": "Open application",
+          "url": "https://dentari-dev-8780.apps.oec.sh/",
+          "targetBlank": true
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "title": "Dentari \u2014 Development \u2014 Last probe result",
+      "type": "stat",
+      "gridPos": {
+        "x": 0,
+        "y": 35,
+        "w": 12,
+        "h": 3
+      },
+      "description": "Time of the most recent result from either probe. The HTTP status card independently requires fresh results from both probes. Results are retained for 15 minutes to cover the five-minute probe schedule.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "dateTimeAsIso",
+          "noValue": "No results yet"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "none",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "grafanacloud-prom"
+      },
+      "targets": [
+        {
+          "expr": "max(max_over_time(timestamp(probe_success{job=\"dentari-dev-http\",instance=\"https://dentari-dev-8780.apps.oec.sh/\"})[15m:30s])) * 1000",
+          "legendFormat": "Dentari \u2014 Development",
+          "instant": true,
+          "range": false,
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "editorMode": "code"
+        }
+      ]
+    },
+    {
+      "id": 15,
+      "title": "Dentari \u2014 Development \u2014 Successful checks",
+      "type": "stat",
+      "gridPos": {
+        "x": 0,
+        "y": 38,
+        "w": 12,
+        "h": 4
+      },
+      "description": "Percentage of collected successful probe results. Missing results are excluded. New checks show only available history, not full 24-hour/7-day coverage.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "decimals": 2,
+          "noValue": "No results yet"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "grafanacloud-prom"
+      },
+      "targets": [
+        {
+          "expr": "100 * sum(sum_over_time(probe_success{job=\"dentari-dev-http\",instance=\"https://dentari-dev-8780.apps.oec.sh/\"}[24h])) / sum(count_over_time(probe_success{job=\"dentari-dev-http\",instance=\"https://dentari-dev-8780.apps.oec.sh/\"}[24h]))",
+          "legendFormat": "24h",
+          "instant": true,
+          "range": false,
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "editorMode": "code"
+        },
+        {
+          "expr": "100 * sum(sum_over_time(probe_success{job=\"dentari-dev-http\",instance=\"https://dentari-dev-8780.apps.oec.sh/\"}[7d])) / sum(count_over_time(probe_success{job=\"dentari-dev-http\",instance=\"https://dentari-dev-8780.apps.oec.sh/\"}[7d]))",
+          "legendFormat": "7d",
+          "instant": true,
+          "range": false,
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "editorMode": "code"
+        }
+      ]
+    },
+    {
+      "id": 16,
+      "title": "Adaminfo \u2014 Development \u2014 HTTP status",
+      "type": "stat",
+      "gridPos": {
+        "x": 12,
+        "y": 30,
+        "w": 12,
+        "h": 5
+      },
+      "description": "https://adaminfo-dev-7360.apps.oec.sh/\nExpected: two probes, 5-minute checks, 10-second timeout, final 2xx, valid TLS. A probe with no result within 15 minutes makes the state UNKNOWN.",
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "-1": {
+                  "text": "UNKNOWN",
+                  "color": "#808080"
+                },
+                "0": {
+                  "text": "DOWN",
+                  "color": "red"
+                },
+                "1": {
+                  "text": "DEGRADED",
+                  "color": "orange"
+                },
+                "2": {
+                  "text": "UP",
+                  "color": "green"
+                }
+              }
+            },
+            {
+              "type": "special",
+              "options": {
+                "match": "null",
+                "result": {
+                  "text": "UNKNOWN",
+                  "color": "#808080"
+                }
+              }
+            }
+          ],
+          "noValue": "UNKNOWN",
+          "min": -1,
+          "max": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "grafanacloud-prom"
+      },
+      "targets": [
+        {
+          "expr": "(sum((last_over_time(probe_success{job=\"adaminfo-dev-http\",instance=\"https://adaminfo-dev-7360.apps.oec.sh/\"}[15m]) and topk by (probe) (1, max_over_time(timestamp(probe_success{job=\"adaminfo-dev-http\",instance=\"https://adaminfo-dev-7360.apps.oec.sh/\"})[15m:30s])))) and (count((last_over_time(probe_success{job=\"adaminfo-dev-http\",instance=\"https://adaminfo-dev-7360.apps.oec.sh/\"}[15m]) and topk by (probe) (1, max_over_time(timestamp(probe_success{job=\"adaminfo-dev-http\",instance=\"https://adaminfo-dev-7360.apps.oec.sh/\"})[15m:30s])))) == 2)) or vector(-1)",
+          "legendFormat": "Adaminfo \u2014 Development",
+          "instant": true,
+          "range": false,
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "editorMode": "code"
+        }
+      ],
+      "links": [
+        {
+          "title": "Open application",
+          "url": "https://adaminfo-dev-7360.apps.oec.sh/",
+          "targetBlank": true
+        }
+      ]
+    },
+    {
+      "id": 17,
+      "title": "Adaminfo \u2014 Development \u2014 Last probe result",
+      "type": "stat",
+      "gridPos": {
+        "x": 12,
+        "y": 35,
+        "w": 12,
+        "h": 3
+      },
+      "description": "Time of the most recent result from either probe. The HTTP status card independently requires fresh results from both probes. Results are retained for 15 minutes to cover the five-minute probe schedule.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "dateTimeAsIso",
+          "noValue": "No results yet"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "none",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "grafanacloud-prom"
+      },
+      "targets": [
+        {
+          "expr": "max(max_over_time(timestamp(probe_success{job=\"adaminfo-dev-http\",instance=\"https://adaminfo-dev-7360.apps.oec.sh/\"})[15m:30s])) * 1000",
+          "legendFormat": "Adaminfo \u2014 Development",
+          "instant": true,
+          "range": false,
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "editorMode": "code"
+        }
+      ]
+    },
+    {
+      "id": 18,
+      "title": "Adaminfo \u2014 Development \u2014 Successful checks",
+      "type": "stat",
+      "gridPos": {
+        "x": 12,
+        "y": 38,
+        "w": 12,
+        "h": 4
+      },
+      "description": "Percentage of collected successful probe results. Missing results are excluded. New checks show only available history, not full 24-hour/7-day coverage.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "decimals": 2,
+          "noValue": "No results yet"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "grafanacloud-prom"
+      },
+      "targets": [
+        {
+          "expr": "100 * sum(sum_over_time(probe_success{job=\"adaminfo-dev-http\",instance=\"https://adaminfo-dev-7360.apps.oec.sh/\"}[24h])) / sum(count_over_time(probe_success{job=\"adaminfo-dev-http\",instance=\"https://adaminfo-dev-7360.apps.oec.sh/\"}[24h]))",
+          "legendFormat": "24h",
+          "instant": true,
+          "range": false,
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "editorMode": "code"
+        },
+        {
+          "expr": "100 * sum(sum_over_time(probe_success{job=\"adaminfo-dev-http\",instance=\"https://adaminfo-dev-7360.apps.oec.sh/\"}[7d])) / sum(count_over_time(probe_success{job=\"adaminfo-dev-http\",instance=\"https://adaminfo-dev-7360.apps.oec.sh/\"}[7d]))",
+          "legendFormat": "7d",
+          "instant": true,
+          "range": false,
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "editorMode": "code"
+        }
+      ]
+    },
+    {
+      "id": 19,
+      "title": "Development \u2014 Availability history",
+      "type": "state-timeline",
+      "gridPos": {
+        "x": 0,
+        "y": 42,
+        "w": 24,
+        "h": 6
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "-1": {
+                  "text": "UNKNOWN",
+                  "color": "#808080"
+                },
+                "0": {
+                  "text": "DOWN",
+                  "color": "red"
+                },
+                "1": {
+                  "text": "DEGRADED",
+                  "color": "orange"
+                },
+                "2": {
+                  "text": "UP",
+                  "color": "green"
+                }
+              }
+            },
+            {
+              "type": "special",
+              "options": {
+                "match": "null",
+                "result": {
+                  "text": "UNKNOWN",
+                  "color": "#808080"
+                }
+              }
+            }
+          ],
+          "custom": {
+            "lineWidth": 0,
+            "fillOpacity": 80,
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showValue": "auto",
+        "mergeValues": true,
+        "rowHeight": 0.8,
+        "legend": {
+          "showLegend": false
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "grafanacloud-prom"
+      },
+      "targets": [
+        {
+          "expr": "(sum((last_over_time(probe_success{job=\"dentari-dev-http\",instance=\"https://dentari-dev-8780.apps.oec.sh/\"}[15m]) and topk by (probe) (1, max_over_time(timestamp(probe_success{job=\"dentari-dev-http\",instance=\"https://dentari-dev-8780.apps.oec.sh/\"})[15m:30s])))) and (count((last_over_time(probe_success{job=\"dentari-dev-http\",instance=\"https://dentari-dev-8780.apps.oec.sh/\"}[15m]) and topk by (probe) (1, max_over_time(timestamp(probe_success{job=\"dentari-dev-http\",instance=\"https://dentari-dev-8780.apps.oec.sh/\"})[15m:30s])))) == 2)) or vector(-1)",
+          "legendFormat": "Dentari \u2014 Development",
+          "instant": false,
+          "range": true,
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "editorMode": "code"
+        },
+        {
+          "expr": "(sum((last_over_time(probe_success{job=\"adaminfo-dev-http\",instance=\"https://adaminfo-dev-7360.apps.oec.sh/\"}[15m]) and topk by (probe) (1, max_over_time(timestamp(probe_success{job=\"adaminfo-dev-http\",instance=\"https://adaminfo-dev-7360.apps.oec.sh/\"})[15m:30s])))) and (count((last_over_time(probe_success{job=\"adaminfo-dev-http\",instance=\"https://adaminfo-dev-7360.apps.oec.sh/\"}[15m]) and topk by (probe) (1, max_over_time(timestamp(probe_success{job=\"adaminfo-dev-http\",instance=\"https://adaminfo-dev-7360.apps.oec.sh/\"})[15m:30s])))) == 2)) or vector(-1)",
+          "legendFormat": "Adaminfo \u2014 Development",
+          "instant": false,
+          "range": true,
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "editorMode": "code"
+        }
+      ]
+    },
+    {
+      "id": 20,
+      "title": "Development \u2014 Response time by probe",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 0,
+        "y": 48,
+        "w": 12,
+        "h": 7
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "grafanacloud-prom"
+      },
+      "targets": [
+        {
+          "expr": "probe_duration_seconds{job=\"dentari-dev-http\",instance=\"https://dentari-dev-8780.apps.oec.sh/\"}",
+          "legendFormat": "Dentari \u2014 {{probe}}",
+          "instant": false,
+          "range": true,
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "editorMode": "code"
+        },
+        {
+          "expr": "probe_duration_seconds{job=\"adaminfo-dev-http\",instance=\"https://adaminfo-dev-7360.apps.oec.sh/\"}",
+          "legendFormat": "Adaminfo \u2014 {{probe}}",
+          "instant": false,
+          "range": true,
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "editorMode": "code"
+        }
+      ]
+    },
+    {
+      "id": 21,
+      "title": "Development \u2014 HTTP response codes by probe",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 12,
+        "y": 48,
+        "w": 12,
+        "h": 7
+      },
+      "description": "Final HTTP status after redirects. A zero can indicate failure before an HTTP response; use HTTP status cards for overall success.",
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "stepAfter",
+            "lineWidth": 2,
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "grafanacloud-prom"
+      },
+      "targets": [
+        {
+          "expr": "probe_http_status_code{job=\"dentari-dev-http\",instance=\"https://dentari-dev-8780.apps.oec.sh/\"}",
+          "legendFormat": "Dentari \u2014 {{probe}}",
+          "instant": false,
+          "range": true,
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "editorMode": "code"
+        },
+        {
+          "expr": "probe_http_status_code{job=\"adaminfo-dev-http\",instance=\"https://adaminfo-dev-7360.apps.oec.sh/\"}",
+          "legendFormat": "Adaminfo \u2014 {{probe}}",
+          "instant": false,
+          "range": true,
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "editorMode": "code"
+        }
+      ]
+    }
+  ],
+  "id": 3282755298959360
+}
