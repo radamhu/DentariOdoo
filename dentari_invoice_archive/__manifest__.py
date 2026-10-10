@@ -9,7 +9,11 @@
     # append their own new file(s) here as they're created -- never reference
     # a data file in this list before the task that creates it exists, or
     # every `odoo -u` run until then fails with a missing-file error.
-    'data': [],
+    'data': [
+        'security/ir.model.access.csv',
+        'data/ir_cron.xml',
+        'views/szamlazz_sync_views.xml',
+    ],
     'installable': True,
     'application': False,
     'auto_install': False,

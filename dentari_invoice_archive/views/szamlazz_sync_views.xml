@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_szamlazz_sync_form" model="ir.ui.view">
+        <field name="name">dentari.szamlazz.sync.form</field>
+        <field name="model">dentari.szamlazz.sync</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="action_run_sync" type="object"
+                            string="Szinkronizálás most" class="btn-primary"/>
+                </header>
+                <sheet>
+                    <group>
+                        <field name="last_run"/>
+                        <field name="last_run_status"/>
+                        <field name="last_synced_number"/>
+                        <field name="last_run_count"/>
+                        <field name="last_run_message"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_szamlazz_sync" model="ir.actions.act_window">
+        <field name="name">Számlázz.hu szinkronizálás</field>
+        <field name="res_model">dentari.szamlazz.sync</field>
+        <field name="view_mode">form</field>
+        <field name="target">current</field>
+    </record>
+</odoo>

@@ -116,3 +116,16 @@ class TestSzamlazzSync(TransactionCase):
 
         self.assertEqual(self.sync.last_run_status, 'error')
         self.assertIn('bevétel', self.sync.last_run_message or '')
+
+
+@tagged('post_install', '-at_install')
+class TestSzamlazzSyncSetup(TransactionCase):
+
+    def test_cron_job_registered(self):
+        cron = self.env.ref('dentari_invoice_archive.ir_cron_szamlazz_sync')
+        self.assertEqual(cron.model_id.model, 'dentari.szamlazz.sync')
+        self.assertTrue(cron.active)
+
+    def test_sync_action_registered(self):
+        action = self.env.ref('dentari_invoice_archive.action_szamlazz_sync')
+        self.assertEqual(action.res_model, 'dentari.szamlazz.sync')
