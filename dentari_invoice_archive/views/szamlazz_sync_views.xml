@@ -25,6 +25,7 @@
     <record id="action_szamlazz_sync" model="ir.actions.act_window">
         <field name="name">Számlázz.hu szinkronizálás</field>
         <field name="res_model">dentari.szamlazz.sync</field>
+        <field name="res_id" eval="ref('dentari_invoice_archive.szamlazz_sync_singleton')"/>
         <field name="view_mode">form</field>
         <field name="target">current</field>
     </record>

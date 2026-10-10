@@ -7,6 +7,7 @@ unconfirmed field (no storno sample was available) and always reads False.
 import base64
 import logging
 from xml.etree import ElementTree as ET
+from xml.sax.saxutils import escape as xml_escape
 
 import requests
 
@@ -39,6 +40,26 @@ _NUMERIC_FIELDS = {'net_total', 'vat_total', 'gross_total', 'vat_rate'}
 
 # szamlazz.hu's XML uses the literal Hungarian currency symbol, not ISO 4217.
 _CURRENCY_MAP = {'Ft': 'HUF'}
+
+# szamlazz.hu's Agent API reports failures through these response headers
+# (the success path carries szlahu_szamlaszam etc. -- confirmed in the
+# Phase 0 spike). The specific error code for "no such invoice number" was
+# NOT confirmed live, so any error header is treated as "not found".
+_ERROR_HEADERS = ('szlahu_error_code', 'szlahu_error')
+
+
+class InvoiceNotFound(Exception):
+    """szamlazz.hu has no invoice with this number (yet). The sync cron
+    treats this as the normal "caught up" signal when probing past the
+    newest issued number, not as a failure."""
+
+    def __init__(self, invoice_number, detail=None):
+        self.invoice_number = invoice_number
+        self.detail = detail
+        message = f'Számla nem található: {invoice_number}'
+        if detail:
+            message += f' ({detail})'
+        super().__init__(message)
 
 
 def _strip_namespace(elem):
@@ -80,15 +101,22 @@ def query_invoice(agent_key, invoice_number, timeout=30):
 
     Returns (parsed_dict, pdf_bytes_or_none) -- the PDF comes from inside
     the XML body itself (parsed['pdf_bytes']), not a response header; the
-    first agent spike wrongly assumed a 'szlahu_pdf' header existed. Raises
-    requests.RequestException on network failure -- callers (Task 4) are
-    responsible for catching this.
+    first agent spike wrongly assumed a 'szlahu_pdf' header existed.
+
+    Raises InvoiceNotFound when szamlazz.hu signals an error via its
+    szlahu_error/szlahu_error_code headers, or when the body parses but does
+    not describe the requested invoice number (defense in depth, in case the
+    error-header convention is ever wrong -- an empty/foreign envelope must
+    never be archived as if it were a real invoice). Raises
+    requests.RequestException on network/HTTP failure and ET.ParseError on
+    an unparseable body without error headers -- callers are responsible for
+    catching these.
     """
     xml_body = (
         '<?xml version="1.0" encoding="UTF-8"?>'
         '<xmlszamlaxml xmlns="http://www.szamlazz.hu/xmlszamlaxml">'
-        f'<szamlaagentkulcs>{agent_key}</szamlaagentkulcs>'
-        f'<szamlaszam>{invoice_number}</szamlaszam>'
+        f'<szamlaagentkulcs>{xml_escape(agent_key or "")}</szamlaagentkulcs>'
+        f'<szamlaszam>{xml_escape(invoice_number or "")}</szamlaszam>'
         '<pdf>true</pdf>'
         '</xmlszamlaxml>'
     )
@@ -97,8 +125,23 @@ def query_invoice(agent_key, invoice_number, timeout=30):
         files={'action-szamla_agent_xml': ('request.xml', xml_body, 'text/xml')},
         timeout=timeout,
     )
+    # Checked before raise_for_status(): szamlazz.hu may pair its error
+    # headers with a non-2xx status, and the "not found" case must not be
+    # reported as an HTTP failure on every normal "caught up" cron run.
+    error_code = resp.headers.get('szlahu_error_code')
+    error_text = resp.headers.get('szlahu_error')
+    if error_code or error_text:
+        detail = f'szlahu_error_code={error_code}: {error_text}'
+        _logger.info('szamlazz.hu error for %s: %s', invoice_number, detail)
+        raise InvoiceNotFound(invoice_number, detail)
     resp.raise_for_status()
     parsed = parse_query_response(resp.content)
+    returned_number = (parsed.get('invoice_number') or '').strip()
+    if not returned_number or returned_number != (invoice_number or '').strip():
+        raise InvoiceNotFound(
+            invoice_number,
+            f'a válasz sorszáma: {returned_number or "üres"}',
+        )
     return parsed, parsed.pop('pdf_bytes')
 
 

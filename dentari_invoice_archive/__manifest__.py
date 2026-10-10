@@ -4,13 +4,11 @@
     'category': 'Dental / Accounting',
     'summary': 'Archives szamlazz.hu-issued invoices into Odoo as draft account.move records',
     'depends': ['account', 'dentari_lab'],
-    # Empty at Task 2 -- account.move field additions need no new security/view
-    # file (account.move's own ACL already covers it). Tasks 5 and 6 each
-    # append their own new file(s) here as they're created -- never reference
-    # a data file in this list before the task that creates it exists, or
-    # every `odoo -u` run until then fails with a missing-file error.
+    # Order matters: ACL before the seeded sync singleton, the singleton
+    # before the views whose action binds to it via res_id.
     'data': [
         'security/ir.model.access.csv',
+        'data/szamlazz_sync_data.xml',
         'data/ir_cron.xml',
         'views/szamlazz_sync_views.xml',
         'views/invoice_archive_views.xml',

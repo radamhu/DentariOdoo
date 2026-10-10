@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- The one sync-status record: the menu action opens it (res_id) and
+         the ir.cron falls back to it (search([], limit=1)), so the manual
+         "run now" button and the daily cron share the same state. There is
+         intentionally no list view for this model. -->
+    <data noupdate="1">
+        <record id="szamlazz_sync_singleton" model="dentari.szamlazz.sync">
+            <field name="last_run_status">never</field>
+        </record>
+    </data>
+</odoo>
