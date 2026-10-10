@@ -1,3 +1,5 @@
+import base64
+
 from odoo.tests.common import TransactionCase, tagged
 
 from odoo.addons.dentari_invoice_archive.models.szamlazz_client import (
@@ -151,4 +153,5 @@ class TestAttachPdf(TransactionCase):
         self.assertEqual(attachment.res_model, 'account.move')
         self.assertEqual(attachment.res_id, move.id)
         self.assertEqual(attachment.name, 'E-2026-0042.pdf')
+        self.assertEqual(base64.b64decode(attachment.datas), b'%PDF-1.4 fake content')
         self.assertIn(attachment, move.attachment_ids if hasattr(move, 'attachment_ids') else move.message_main_attachment_id | attachment)
