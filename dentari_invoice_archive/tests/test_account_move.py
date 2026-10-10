@@ -36,3 +36,29 @@ class TestAccountMoveInvoiceSource(TransactionCase):
             ('szamlazz_invoice_number', '=', 'E-2026-0099'),
         ])
         self.assertEqual(len(found), 1)
+
+
+class TestInvoiceArchiveView(TransactionCase):
+
+    def test_archive_list_action_registered_and_scoped(self):
+        action = self.env.ref('dentari_invoice_archive.action_invoice_archive_list')
+        self.assertEqual(action.res_model, 'account.move')
+        import ast
+        domain = ast.literal_eval(action.domain)
+        partner = self.env['res.partner'].create({'name': 'Teszt Ügyfél 5'})
+        archived = self.env['account.move'].create({
+            'move_type': 'out_invoice',
+            'partner_id': partner.id,
+            'invoice_source': 'szamlazz_archive',
+            'szamlazz_invoice_number': 'E-2026-0077',
+        })
+        odoo_native = self.env['account.move'].create({
+            'move_type': 'out_invoice',
+            'partner_id': partner.id,
+        })
+        found = self.env['account.move'].search(domain)
+        self.assertIn(archived, found)
+        self.assertNotIn(odoo_native, found)
+
+    def test_menu_registered(self):
+        self.assertTrue(self.env.ref('dentari_invoice_archive.menu_invoice_archive_root'))

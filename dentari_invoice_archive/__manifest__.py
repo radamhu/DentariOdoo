@@ -13,6 +13,8 @@
         'security/ir.model.access.csv',
         'data/ir_cron.xml',
         'views/szamlazz_sync_views.xml',
+        'views/invoice_archive_views.xml',
+        'views/menus.xml',
     ],
     'installable': True,
     'application': False,

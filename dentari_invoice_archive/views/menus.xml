@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <menuitem id="menu_invoice_archive_root"
+              name="Számla archívum"
+              groups="dentari_lab.group_lab_manager"
+              sequence="40"/>
+
+    <menuitem id="menu_invoice_archive_list"
+              name="Kiadott számlák (archívum)"
+              parent="menu_invoice_archive_root"
+              action="action_invoice_archive_list"
+              sequence="10"/>
+
+    <menuitem id="menu_invoice_archive_sync"
+              name="Szinkronizálás beállításai"
+              parent="menu_invoice_archive_root"
+              action="action_szamlazz_sync"
+              sequence="20"/>
+</odoo>

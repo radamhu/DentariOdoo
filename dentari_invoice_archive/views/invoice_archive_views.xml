@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_invoice_archive_list" model="ir.ui.view">
+        <field name="name">account.move.invoice.archive.list</field>
+        <field name="model">account.move</field>
+        <field name="arch" type="xml">
+            <list string="Számla archívum" create="false" delete="false">
+                <field name="szamlazz_invoice_number"/>
+                <field name="partner_id"/>
+                <field name="invoice_date"/>
+                <field name="amount_untaxed" string="Nettó" sum="Nettó összesen"/>
+                <field name="amount_tax" string="ÁFA" sum="ÁFA összesen"/>
+                <field name="amount_total" string="Bruttó" sum="Bruttó összesen"/>
+                <field name="currency_id"/>
+                <field name="state"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="action_invoice_archive_list" model="ir.actions.act_window">
+        <field name="name">Számla archívum</field>
+        <field name="res_model">account.move</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('invoice_source', '=', 'szamlazz_archive')]</field>
+        <field name="context">{'create': False}</field>
+    </record>
+</odoo>
