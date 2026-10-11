@@ -10,7 +10,7 @@ Verifies:
   6. Delete it (cleanup)
 
 Usage:
-  python tests/smoke_dev.py
+  python dentari_lab/tests/smoke_dev.py
 
 Credentials are loaded from .env.dev in the repo root.
 Override any variable with environment exports before running.
@@ -45,7 +45,7 @@ def ok(msg: str) -> None:
 
 
 def main() -> None:
-    repo_root = Path(__file__).parent.parent
+    repo_root = Path(__file__).parent.parent.parent
     load_env(repo_root / ".env.dev")
 
     url = os.environ.get("ODOO_URL", "").rstrip("/")

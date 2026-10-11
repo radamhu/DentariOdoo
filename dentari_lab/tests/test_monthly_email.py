@@ -2,7 +2,7 @@
 Smoke test — dental.monthly.email.wizard model existence and field check.
 
 Usage:
-  python tests/test_monthly_email.py
+  python dentari_lab/tests/test_monthly_email.py
 
 Credentials loaded from .env.dev in the repo root.
 """
@@ -34,7 +34,7 @@ def ok(msg: str) -> None:
 
 
 def main() -> None:
-    repo_root = Path(__file__).parent.parent
+    repo_root = Path(__file__).parent.parent.parent
     load_env(repo_root / ".env.dev")
 
     url = os.environ.get("ODOO_URL", "").rstrip("/")

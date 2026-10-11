@@ -2,6 +2,12 @@
 	"folders": [
 		{
 			"path": "."
+		},
+		{
+			"path": "../magamat-konyvelem"
+		},
+		{
+			"path": "../radamhu"
 		}
 	],
 	"settings": {
