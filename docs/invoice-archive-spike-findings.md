@@ -95,3 +95,40 @@ rewritten against the real schema above before either task is considered
 correct — the versions already drafted in the plan (guessed `FIELD_PATHS`,
 ratio-based tax matching, header-based PDF extraction) do not match reality
 and would not work against this account.
+
+## Addendum (2026-10-11): real error-signaling mechanism, resolving Q4's sibling gap
+
+The final-review fix wave shipped a guess that szamlazz.hu signals errors via
+`szlahu_error`/`szlahu_error_code` response headers — untested at the time,
+flagged as a go-live risk (a bad agent key or outage would be silently
+reported as "caught up, 0 synced"). Ran two live probes to settle it:
+
+1. **Unknown invoice number** (`AE-9999-999999`, real key): HTTP 200, **no
+   `szlahu_*` headers at all**. Body is a different envelope entirely —
+   root `<xmlszamlavalasz>`, not `<szamla>`:
+   ```xml
+   <xmlszamlavalasz>
+     <sikeres>false</sikeres>
+     <hibakod><![CDATA[7]]></hibakod>
+     <hibauzenet><![CDATA[Hiányzó adat: számla xml (ismeretlen számlaszám,
+       rendelésszám vagy külső azonosító).]]></hibauzenet>
+   </xmlszamlavalasz>
+   ```
+2. **Bad agent key** (deliberately garbage key, real invoice number): same
+   envelope shape, different code:
+   ```xml
+   <xmlszamlavalasz><sikeres>false</sikeres>
+     <hibakod><![CDATA[3]]></hibakod>
+     <hibauzenet><![CDATA[Sikertelen bejelentkezés.]]></hibauzenet>
+   </xmlszamlavalasz>
+   ```
+
+**Conclusion:** the header-based guess was wrong — szamlazz.hu never sends
+`szlahu_error*` headers on failure. The real signal is this `hibakod`
+envelope, confirmed to arrive at HTTP 200. `hibakod=7` means "no such
+invoice number" (the normal cron "caught up" case); `hibakod=3` means a
+bad/revoked agent key (a real failure, must never be treated as caught up).
+Other hibakod values are unconfirmed but are now handled correctly by
+construction: `szamlazz_client.py`'s `query_invoice` raises `InvoiceNotFound`
+only for `hibakod == '7'`, and `SzamlazzApiError` for anything else —
+closing the go-live gap this addendum was written to resolve.

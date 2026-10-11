@@ -41,17 +41,24 @@ _NUMERIC_FIELDS = {'net_total', 'vat_total', 'gross_total', 'vat_rate'}
 # szamlazz.hu's XML uses the literal Hungarian currency symbol, not ISO 4217.
 _CURRENCY_MAP = {'Ft': 'HUF'}
 
-# szamlazz.hu's Agent API reports failures through these response headers
-# (the success path carries szlahu_szamlaszam etc. -- confirmed in the
-# Phase 0 spike). The specific error code for "no such invoice number" was
-# NOT confirmed live, so any error header is treated as "not found".
-_ERROR_HEADERS = ('szlahu_error_code', 'szlahu_error')
+# Confirmed live (2026-10-11, real account, see
+# docs/invoice-archive-spike-findings.md addendum): szamlazz.hu does NOT
+# signal errors via szlahu_error/szlahu_error_code response headers -- an
+# earlier version of this module guessed that and was wrong. The real
+# signal is HTTP 200 with a *different* XML envelope than the success
+# <szamla> response: root <xmlszamlavalasz>, <sikeres>false</sikeres>,
+# <hibakod>N</hibakod>. hibakod is the only way to tell "no such invoice
+# number" (confirmed hibakod 7) apart from a real failure like a bad agent
+# key (confirmed hibakod 3, "Sikertelen bejelentkezés" -- login failed).
+_ERROR_ENVELOPE_ROOT = 'xmlszamlavalasz'
+_NOT_FOUND_HIBAKOD = '7'
 
 
 class InvoiceNotFound(Exception):
-    """szamlazz.hu has no invoice with this number (yet). The sync cron
-    treats this as the normal "caught up" signal when probing past the
-    newest issued number, not as a failure."""
+    """szamlazz.hu has no invoice with this number (yet) -- confirmed via
+    hibakod=7 on the <xmlszamlavalasz> error envelope. The sync cron treats
+    this as the normal "caught up" signal when probing past the newest
+    issued number, not as a failure."""
 
     def __init__(self, invoice_number, detail=None):
         self.invoice_number = invoice_number
@@ -60,6 +67,22 @@ class InvoiceNotFound(Exception):
         if detail:
             message += f' ({detail})'
         super().__init__(message)
+
+
+class SzamlazzApiError(Exception):
+    """szamlazz.hu returned its <xmlszamlavalasz> error envelope with a
+    hibakod other than 7 (not-found) -- a real failure (bad/revoked agent
+    key, hibakod 3; or any other confirmed/unconfirmed code). The sync cron
+    must NOT treat this as "caught up" -- it propagates to the normal error
+    path (last_run_status='error'), unlike InvoiceNotFound."""
+
+    def __init__(self, invoice_number, hibakod, hibauzenet):
+        self.invoice_number = invoice_number
+        self.hibakod = hibakod
+        self.hibauzenet = hibauzenet
+        super().__init__(
+            f'szamlazz.hu hiba ({invoice_number}): hibakod={hibakod}: {hibauzenet}'
+        )
 
 
 def _strip_namespace(elem):
@@ -103,14 +126,15 @@ def query_invoice(agent_key, invoice_number, timeout=30):
     the XML body itself (parsed['pdf_bytes']), not a response header; the
     first agent spike wrongly assumed a 'szlahu_pdf' header existed.
 
-    Raises InvoiceNotFound when szamlazz.hu signals an error via its
-    szlahu_error/szlahu_error_code headers, or when the body parses but does
-    not describe the requested invoice number (defense in depth, in case the
-    error-header convention is ever wrong -- an empty/foreign envelope must
-    never be archived as if it were a real invoice). Raises
-    requests.RequestException on network/HTTP failure and ET.ParseError on
-    an unparseable body without error headers -- callers are responsible for
-    catching these.
+    Raises InvoiceNotFound when szamlazz.hu's error envelope reports
+    hibakod=7 (confirmed live meaning: no such invoice number). Raises
+    SzamlazzApiError for any other hibakod (confirmed live: 3 = bad/revoked
+    agent key -- there may be others, unconfirmed, and they must never be
+    silently treated as "not found"). Raises requests.RequestException on
+    network/HTTP failure. As defense in depth (in case the envelope
+    convention is ever wrong), also raises InvoiceNotFound if a <szamla>
+    success body parses but doesn't actually describe the requested number
+    -- an empty/foreign envelope must never be archived as a real invoice.
     """
     xml_body = (
         '<?xml version="1.0" encoding="UTF-8"?>'
@@ -125,16 +149,24 @@ def query_invoice(agent_key, invoice_number, timeout=30):
         files={'action-szamla_agent_xml': ('request.xml', xml_body, 'text/xml')},
         timeout=timeout,
     )
-    # Checked before raise_for_status(): szamlazz.hu may pair its error
-    # headers with a non-2xx status, and the "not found" case must not be
-    # reported as an HTTP failure on every normal "caught up" cron run.
-    error_code = resp.headers.get('szlahu_error_code')
-    error_text = resp.headers.get('szlahu_error')
-    if error_code or error_text:
-        detail = f'szlahu_error_code={error_code}: {error_text}'
-        _logger.info('szamlazz.hu error for %s: %s', invoice_number, detail)
-        raise InvoiceNotFound(invoice_number, detail)
+    # szamlazz.hu's error envelope ships with HTTP 200 (confirmed live),
+    # so raise_for_status() alone would never catch it -- but a genuine
+    # transport/server failure should still be raised before anything else.
     resp.raise_for_status()
+    root = _strip_namespace(ET.fromstring(resp.content))
+    if root.tag == _ERROR_ENVELOPE_ROOT:
+        hibakod_node = root.find('./hibakod')
+        hibauzenet_node = root.find('./hibauzenet')
+        hibakod = (hibakod_node.text or '').strip() if hibakod_node is not None else ''
+        hibauzenet = (hibauzenet_node.text or '').strip() if hibauzenet_node is not None else ''
+        _logger.info(
+            'szamlazz.hu error envelope for %s: hibakod=%s %s',
+            invoice_number, hibakod, hibauzenet,
+        )
+        if hibakod == _NOT_FOUND_HIBAKOD:
+            raise InvoiceNotFound(invoice_number, f'hibakod={hibakod}: {hibauzenet}')
+        raise SzamlazzApiError(invoice_number, hibakod, hibauzenet)
+
     parsed = parse_query_response(resp.content)
     returned_number = (parsed.get('invoice_number') or '').strip()
     if not returned_number or returned_number != (invoice_number or '').strip():

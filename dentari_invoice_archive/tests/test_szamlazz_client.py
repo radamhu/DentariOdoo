@@ -1,12 +1,14 @@
 import base64
 from unittest.mock import MagicMock, patch
 
+import requests
 from requests.structures import CaseInsensitiveDict
 
 from odoo.tests.common import TransactionCase, tagged
 
 from odoo.addons.dentari_invoice_archive.models.szamlazz_client import (
     InvoiceNotFound,
+    SzamlazzApiError,
     attach_pdf,
     find_or_create_partner,
     parse_query_response,
@@ -187,24 +189,55 @@ class TestQueryInvoice(TransactionCase):
         self.assertEqual(pdf[:4], b'%PDF')
         self.assertNotIn('pdf_bytes', parsed)
 
+    # Confirmed live on 2026-10-11 against the real account (see
+    # docs/invoice-archive-spike-findings.md addendum): szamlazz.hu does NOT
+    # use szlahu_error/szlahu_error_code response headers at all. An unknown
+    # invoice number and a bad agent key both come back as HTTP 200 with a
+    # <xmlszamlavalasz><sikeres>false</sikeres><hibakod>N</hibakod>...
+    # envelope -- hibakod=7 for "no such invoice" (confirmed), hibakod=3 for
+    # a bad/revoked agent key (confirmed). These fixtures are the real
+    # response bodies observed, not guessed.
+    NOT_FOUND_ENVELOPE = (
+        b'<?xml version="1.0" encoding="UTF-8"?>'
+        b'<xmlszamlavalasz xmlns="http://www.szamlazz.hu/xmlszamlavalasz">'
+        b'<sikeres>false</sikeres><hibakod><![CDATA[7]]></hibakod>'
+        b'<hibauzenet><![CDATA[Hianyzo adat: szamla xml (ismeretlen szamlaszam, '
+        b'rendelesszam vagy kulso azonosito).]]></hibauzenet></xmlszamlavalasz>'
+    )
+    BAD_KEY_ENVELOPE = (
+        b'<?xml version="1.0" encoding="UTF-8"?>'
+        b'<xmlszamlavalasz xmlns="http://www.szamlazz.hu/xmlszamlavalasz">'
+        b'<sikeres>false</sikeres><hibakod><![CDATA[3]]></hibakod>'
+        b'<hibauzenet><![CDATA[Sikertelen bejelentkezes.]]></hibauzenet></xmlszamlavalasz>'
+    )
+
     @patch(REQUESTS_POST)
-    def test_error_header_raises_not_found_without_parsing(self, mock_post):
-        # Body deliberately not XML: must never reach the parser.
-        mock_post.return_value = _fake_response(b'nem xml', {
-            'szlahu_error_code': '7',
-            'szlahu_error': 'Nincs ilyen szamla',
-        })
+    def test_hibakod_7_raises_invoice_not_found(self, mock_post):
+        mock_post.return_value = _fake_response(self.NOT_FOUND_ENVELOPE)
         with self.assertRaises(InvoiceNotFound) as ctx:
             query_invoice('key', 'AE-2026-0043')
         self.assertEqual(ctx.exception.invoice_number, 'AE-2026-0043')
         self.assertIn('7', str(ctx.exception))
 
     @patch(REQUESTS_POST)
-    def test_error_header_checked_before_http_status(self, mock_post):
-        resp = _fake_response(b'', {'szlahu_error_code': '7'}, status_code=400)
-        resp.raise_for_status.side_effect = AssertionError('should not be reached')
+    def test_hibakod_3_raises_szamlazz_api_error_not_invoice_not_found(self, mock_post):
+        # A bad/revoked agent key must NEVER be reported as "caught up" --
+        # this is the exact masking bug a live probe caught post-ship.
+        mock_post.return_value = _fake_response(self.BAD_KEY_ENVELOPE)
+        with self.assertRaises(SzamlazzApiError) as ctx:
+            query_invoice('bad-key', 'AE-2026-0043')
+        self.assertEqual(ctx.exception.hibakod, '3')
+        self.assertIn('Sikertelen bejelentkezes', ctx.exception.hibauzenet)
+
+    @patch(REQUESTS_POST)
+    def test_http_error_status_without_envelope_still_raises(self, mock_post):
+        # The error envelope is confirmed to ship with HTTP 200 -- a genuine
+        # transport/server failure (no envelope at all) must still surface
+        # via requests' own HTTPError, not be swallowed.
+        resp = _fake_response(b'', status_code=500)
+        resp.raise_for_status.side_effect = requests.exceptions.HTTPError('500')
         mock_post.return_value = resp
-        with self.assertRaises(InvoiceNotFound):
+        with self.assertRaises(requests.exceptions.HTTPError):
             query_invoice('key', 'AE-2026-0043')
 
     @patch(REQUESTS_POST)
