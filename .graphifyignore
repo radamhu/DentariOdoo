@@ -1,0 +1,18 @@
+node_modules/
+.venv/
+venv/
+__pycache__/
+dist/
+build/
+*.min.js
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+uv.lock
+graphify-out/
+# vendored skill, agent tooling, session artifacts
+.agents/
+.claude/
+.playwright-mcp/
+.superpowers/
+docs/screenshots/

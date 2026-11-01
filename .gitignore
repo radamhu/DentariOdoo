@@ -26,3 +26,6 @@ filestore/
 
 # Agent notes (shared agent memory, never committed)
 .agent-notes.md
+
+# graphify output (local, rebuilt by graphify update .)
+graphify-out/
