@@ -23,3 +23,6 @@ filestore/
 # Playwright MCP session artifacts
 .playwright-mcp/
 .superpowers/
+
+# Agent notes (shared agent memory, never committed)
+.agent-notes.md
